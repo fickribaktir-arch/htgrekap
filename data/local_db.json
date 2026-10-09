@@ -681,8 +681,8 @@
       "seq": 1,
       "toko_id": "toko-htg",
       "nomor": "HTG/1/I/2027",
-      "dibuat_pada": "2026-10-09T05:59:19.749Z",
-      "diubah_pada": "2026-10-09T05:59:19.749Z"
+      "dibuat_pada": "2026-10-09T14:42:35.199Z",
+      "diubah_pada": "2026-10-09T14:42:35.200Z"
     },
     {
       "nota_id": "nota-B",
@@ -690,8 +690,8 @@
       "seq": 2,
       "toko_id": "toko-htg",
       "nomor": "HTG/2/X/2026",
-      "dibuat_pada": "2026-10-09T05:59:19.749Z",
-      "diubah_pada": "2026-10-09T05:59:19.749Z"
+      "dibuat_pada": "2026-10-09T14:42:35.199Z",
+      "diubah_pada": "2026-10-09T14:42:35.199Z"
     },
     {
       "nota_id": "nota-C",
@@ -699,18 +699,40 @@
       "seq": 3,
       "toko_id": "toko-htg",
       "nomor": "HTG/3/X/2026",
-      "dibuat_pada": "2026-10-09T05:59:19.749Z",
-      "diubah_pada": "2026-10-09T05:59:19.749Z"
+      "dibuat_pada": "2026-10-09T14:42:35.200Z",
+      "diubah_pada": "2026-10-09T14:42:35.200Z"
     }
   ],
   "invoice_number_log": [
     {
-      "id": "log-1791525559749-q8k2m",
-      "waktu": "2026-10-09T05:59:19.749Z",
+      "id": "log-1791556955200-v7bxa",
+      "waktu": "2026-10-09T14:42:35.200Z",
       "user_info": "system",
       "nota_id": "nota-A",
       "nomor_lama": "HTG/1/X/2026",
       "nomor_baru": "HTG/1/I/2027"
+    }
+  ],
+  "pengeluaran_operasional": [
+    {
+      "id": "exp-1791559997450-4kidl",
+      "tanggal": "2026-10-09",
+      "kategori": "BBM",
+      "nominal": 50000,
+      "metode_pembayaran": "Tunai",
+      "keterangan": "BBM mobil",
+      "created_at": "2026-10-09T15:33:17.450Z",
+      "updated_at": "2026-10-09T15:33:17.638Z"
+    },
+    {
+      "id": "exp-1791557572351-w57ku",
+      "tanggal": "2026-10-09",
+      "kategori": "Gaji",
+      "nominal": 100000,
+      "metode_pembayaran": "Tunai",
+      "keterangan": "GAJI DRIVER",
+      "created_at": "2026-10-09T14:52:52.351Z",
+      "updated_at": "2026-10-09T14:52:52.800Z"
     }
   ]
 }

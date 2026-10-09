@@ -1,5 +1,6 @@
 import { OrderItem, InvoiceRecord, NoteItem, FollowUpItemRow, PeriodSummaryStats, MasterToko, MasterPemasok, MasterDapur, MasterSatuan, DeliveryStatus, OperationalExpense } from '../types';
 import { getFromCache, setInCache, invalidateCache } from './cacheManager';
+import { getClientSupabase } from './supabaseClient';
 
 export interface SupabaseStatusResult {
   success: boolean;
@@ -1174,37 +1175,84 @@ export async function checkMasterUsageFromDb(
 }
 
 // -----------------------------------------------------------------------------
-// PENGELUARAN OPERASIONAL CLIENT API
+// PENGELUARAN OPERASIONAL CLIENT API (Dua Jalur: Proxy Server & Direct Supabase)
 // -----------------------------------------------------------------------------
 export async function fetchOperationalExpensesFromDb(forceRefresh = false): Promise<{
   success: boolean;
   expenses: OperationalExpense[];
   error?: string;
 }> {
+  // 1. Coba lewat proxy server API
   try {
     const res = await fetch('/api/pengeluaran');
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      return { success: false, expenses: [], error: json.message || 'Gagal memuat pengeluaran operasional' };
+    let json: any = null;
+    const text = await res.text().catch(() => '');
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = null;
     }
-    const rawList = Array.isArray(json.expenses) ? json.expenses : [];
-    const expenses: OperationalExpense[] = rawList.map((item: any) => ({
-      id: item.id || `exp-${Date.now()}`,
-      tanggal: item.tanggal || new Date().toISOString().slice(0, 10),
-      kategori: item.kategori || 'Lainnya',
-      nominal: Number(item.nominal) || 0,
-      metodePembayaran: item.metode_pembayaran || item.metodePembayaran || 'Tunai',
-      metode_pembayaran: item.metode_pembayaran || item.metodePembayaran || 'Tunai',
-      keterangan: item.keterangan || '',
-      createdAt: item.created_at || item.createdAt || new Date().toISOString(),
-      created_at: item.created_at || item.createdAt || new Date().toISOString(),
-      updatedAt: item.updated_at || item.updatedAt,
-      updated_at: item.updated_at || item.updatedAt,
-    }));
-    return { success: true, expenses };
+
+    if (res.ok && json?.success && Array.isArray(json.expenses)) {
+      const expenses: OperationalExpense[] = json.expenses.map((item: any) => ({
+        id: item.id || `exp-${Date.now()}`,
+        tanggal: item.tanggal || new Date().toISOString().slice(0, 10),
+        kategori: item.kategori || 'Lainnya',
+        nominal: Number(item.nominal) || 0,
+        metodePembayaran: item.metode_pembayaran || item.metodePembayaran || 'Tunai',
+        metode_pembayaran: item.metode_pembayaran || item.metodePembayaran || 'Tunai',
+        keterangan: item.keterangan || '',
+        createdAt: item.created_at || item.createdAt || new Date().toISOString(),
+        created_at: item.created_at || item.createdAt || new Date().toISOString(),
+        updatedAt: item.updated_at || item.updatedAt,
+        updated_at: item.updated_at || item.updatedAt,
+      }));
+      return { success: true, expenses };
+    }
   } catch (err: any) {
-    return { success: false, expenses: [], error: err?.message || 'Koneksi error' };
+    console.warn('[Proxy GET pengeluaran tidak aktif, mencoba Supabase langsung]:', err?.message);
   }
+
+  // 2. Fallback: Langsung query ke Supabase dari sisi browser
+  try {
+    const supabase = await getClientSupabase();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('pengeluaran_operasional')
+        .select('*')
+        .order('tanggal', { ascending: false });
+
+      if (error) {
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          return {
+            success: false,
+            expenses: [],
+            error: 'Tabel "pengeluaran_operasional" belum dibuat di Supabase. Silakan jalankan script SQL di Supabase SQL Editor.',
+          };
+        }
+        return { success: false, expenses: [], error: error.message };
+      }
+
+      const expenses: OperationalExpense[] = (data || []).map((item: any) => ({
+        id: item.id || `exp-${Date.now()}`,
+        tanggal: item.tanggal || new Date().toISOString().slice(0, 10),
+        kategori: item.kategori || 'Lainnya',
+        nominal: Number(item.nominal) || 0,
+        metodePembayaran: item.metode_pembayaran || item.metodePembayaran || 'Tunai',
+        metode_pembayaran: item.metode_pembayaran || item.metodePembayaran || 'Tunai',
+        keterangan: item.keterangan || '',
+        createdAt: item.created_at || item.createdAt || new Date().toISOString(),
+        created_at: item.created_at || item.createdAt || new Date().toISOString(),
+        updatedAt: item.updated_at || item.updatedAt,
+        updated_at: item.updated_at || item.updatedAt,
+      }));
+      return { success: true, expenses };
+    }
+  } catch (clientErr: any) {
+    return { success: false, expenses: [], error: clientErr?.message || 'Koneksi error' };
+  }
+
+  return { success: false, expenses: [], error: 'Koneksi database belum tersedia' };
 }
 
 export async function createOperationalExpenseInDb(expense: Partial<OperationalExpense>): Promise<{
@@ -1212,54 +1260,205 @@ export async function createOperationalExpenseInDb(expense: Partial<OperationalE
   expense?: OperationalExpense;
   error?: string;
 }> {
+  // 1. Coba lewat proxy server API dengan safe text parsing
   try {
     const res = await fetch('/api/pengeluaran', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(expense),
     });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      return { success: false, error: json.message || 'Gagal menyimpan pengeluaran operasional' };
+
+    let json: any = null;
+    const text = await res.text().catch(() => '');
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = null;
     }
-    return { success: true, expense: json.expense };
+
+    if (res.ok && json?.success && json.expense) {
+      return { success: true, expense: json.expense };
+    }
+    if (json && json.message && !json.success) {
+      // Server merespons error JSON yang valid
+      console.warn('[Proxy POST pengeluaran error message]:', json.message);
+    }
   } catch (err: any) {
-    return { success: false, error: err?.message || 'Error koneksi saat menyimpan pengeluaran' };
+    console.warn('[Proxy POST pengeluaran gagal, mencoba Supabase langsung]:', err?.message);
   }
+
+  // 2. Fallback: Langsung insert ke Supabase dari sisi browser
+  try {
+    const supabase = await getClientSupabase();
+    if (supabase) {
+      const rowData = {
+        id: expense.id || `exp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        tanggal: expense.tanggal || new Date().toISOString().slice(0, 10),
+        kategori: expense.kategori || 'Lainnya',
+        nominal: Math.max(0, Number(expense.nominal) || 0),
+        metode_pembayaran: expense.metodePembayaran || expense.metode_pembayaran || 'Tunai',
+        keterangan: expense.keterangan || '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data, error } = await supabase
+        .from('pengeluaran_operasional')
+        .insert(rowData)
+        .select('*')
+        .single();
+
+      if (error) {
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          return {
+            success: false,
+            error: 'Tabel "pengeluaran_operasional" belum ada di Supabase. Silakan jalankan script SQL di SQL Editor Supabase terlebih dahulu.',
+          };
+        }
+        return { success: false, error: `Supabase: ${error.message}` };
+      }
+
+      const mapped: OperationalExpense = {
+        id: data.id,
+        tanggal: data.tanggal,
+        kategori: data.kategori,
+        nominal: Number(data.nominal) || 0,
+        metodePembayaran: data.metode_pembayaran || 'Tunai',
+        metode_pembayaran: data.metode_pembayaran || 'Tunai',
+        keterangan: data.keterangan || '',
+        createdAt: data.created_at,
+        created_at: data.created_at,
+        updatedAt: data.updated_at,
+        updated_at: data.updated_at,
+      };
+
+      return { success: true, expense: mapped };
+    }
+  } catch (clientErr: any) {
+    return { success: false, error: clientErr?.message || 'Error saat menyimpan pengeluaran' };
+  }
+
+  return { 
+    success: false, 
+    error: 'Tabel "pengeluaran_operasional" belum ada di Supabase. Silakan jalankan script SQL di SQL Editor Supabase.' 
+  };
 }
 
 export async function updateOperationalExpenseInDb(
   id: string,
   updates: Partial<OperationalExpense>
 ): Promise<{ success: boolean; expense?: OperationalExpense; error?: string }> {
+  // 1. Coba lewat proxy server API
   try {
     const res = await fetch('/api/pengeluaran', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, ...updates }),
     });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      return { success: false, error: json.message || 'Gagal memperbarui pengeluaran operasional' };
+
+    let json: any = null;
+    const text = await res.text().catch(() => '');
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = null;
     }
-    return { success: true, expense: json.expense };
+
+    if (res.ok && json?.success && json.expense) {
+      return { success: true, expense: json.expense };
+    }
   } catch (err: any) {
-    return { success: false, error: err?.message || 'Error koneksi saat memperbarui pengeluaran' };
+    console.warn('[Proxy PUT pengeluaran gagal, mencoba Supabase langsung]:', err?.message);
   }
+
+  // 2. Fallback: Langsung update ke Supabase dari sisi browser
+  try {
+    const supabase = await getClientSupabase();
+    if (supabase) {
+      const patch: any = {
+        updated_at: new Date().toISOString(),
+      };
+      if (updates.tanggal !== undefined) patch.tanggal = updates.tanggal;
+      if (updates.kategori !== undefined) patch.kategori = updates.kategori;
+      if (updates.nominal !== undefined) patch.nominal = Math.max(0, Number(updates.nominal) || 0);
+      if (updates.metodePembayaran !== undefined || updates.metode_pembayaran !== undefined) {
+        patch.metode_pembayaran = updates.metodePembayaran || updates.metode_pembayaran;
+      }
+      if (updates.keterangan !== undefined) patch.keterangan = updates.keterangan;
+
+      const { data, error } = await supabase
+        .from('pengeluaran_operasional')
+        .update(patch)
+        .eq('id', id)
+        .select('*')
+        .single();
+
+      if (error) {
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          return {
+            success: false,
+            error: 'Tabel "pengeluaran_operasional" belum ada di Supabase. Jalankan script SQL di SQL Editor Supabase.',
+          };
+        }
+        return { success: false, error: `Supabase: ${error.message}` };
+      }
+
+      return { success: true, expense: data };
+    }
+  } catch (clientErr: any) {
+    return { success: false, error: clientErr?.message || 'Error saat memperbarui pengeluaran' };
+  }
+
+  return { success: false, error: 'Gagal memperbarui pengeluaran operasional' };
 }
 
 export async function deleteOperationalExpenseInDb(id: string): Promise<{ success: boolean; error?: string }> {
+  // 1. Coba lewat proxy server API
   try {
     const res = await fetch(`/api/pengeluaran?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      return { success: false, error: json.message || 'Gagal menghapus pengeluaran operasional' };
+
+    let json: any = null;
+    const text = await res.text().catch(() => '');
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = null;
     }
-    return { success: true };
+
+    if (res.ok && json?.success) {
+      return { success: true };
+    }
   } catch (err: any) {
-    return { success: false, error: err?.message || 'Error koneksi saat menghapus pengeluaran' };
+    console.warn('[Proxy DELETE pengeluaran gagal, mencoba Supabase langsung]:', err?.message);
   }
+
+  // 2. Fallback: Langsung delete ke Supabase dari sisi browser
+  try {
+    const supabase = await getClientSupabase();
+    if (supabase) {
+      const { error } = await supabase
+        .from('pengeluaran_operasional')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          return {
+            success: false,
+            error: 'Tabel "pengeluaran_operasional" belum ada di Supabase.',
+          };
+        }
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    }
+  } catch (clientErr: any) {
+    return { success: false, error: clientErr?.message || 'Error saat menghapus pengeluaran' };
+  }
+
+  return { success: false, error: 'Gagal menghapus pengeluaran operasional' };
 }
 

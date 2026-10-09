@@ -411,9 +411,17 @@ END;
 $$;
 
 -- -----------------------------------------------------------------------------
--- 8. AKTIFKAN SUPABASE REALTIME (Hemat Bandwidth: Master Data, Pesanan, Transaksi, Pengeluaran)
+-- 8. AKTIFKAN SUPABASE REALTIME (Hemat Bandwidth: Master Data, Pesanan, Transaksi, Notes)
 -- -----------------------------------------------------------------------------
-ALTER PUBLICATION supabase_realtime ADD TABLE public.toko, public.pemasok, public.dapur, public.pesanan, public.transaksi, public.notes, public.pengeluaran_operasional;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.toko, public.pemasok, public.dapur, public.pesanan, public.transaksi, public.notes;
+  END IF;
+EXCEPTION
+  WHEN OTHERS THEN
+    NULL;
+END $$;
 
 -- -----------------------------------------------------------------------------
 -- 9. TABEL AUTH KEY & PIN KEAMANAN (Master PIN untuk Akses Halaman Utama)
@@ -468,6 +476,8 @@ CREATE TABLE IF NOT EXISTS public.pengeluaran_operasional (
 CREATE INDEX IF NOT EXISTS idx_pengeluaran_tanggal ON public.pengeluaran_operasional (tanggal);
 CREATE INDEX IF NOT EXISTS idx_pengeluaran_kategori ON public.pengeluaran_operasional (kategori);
 
+GRANT ALL ON TABLE public.pengeluaran_operasional TO anon, authenticated, service_role;
+
 ALTER TABLE public.pengeluaran_operasional ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow anon select pengeluaran_operasional" ON public.pengeluaran_operasional;
@@ -489,3 +499,26 @@ DROP POLICY IF EXISTS "Allow anon delete pengeluaran_operasional" ON public.peng
 CREATE POLICY "Allow anon delete pengeluaran_operasional" ON public.pengeluaran_operasional
   FOR DELETE TO anon, authenticated
   USING (true);
+
+-- Realtime untuk pengeluaran_operasional
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables 
+      WHERE pubname = 'supabase_realtime' 
+      AND schemaname = 'public' 
+      AND tablename = 'pengeluaran_operasional'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.pengeluaran_operasional;
+    END IF;
+  END IF;
+EXCEPTION
+  WHEN duplicate_object THEN
+    NULL;
+END $$;
+
+-- Alias View pengeluaran
+CREATE OR REPLACE VIEW public.pengeluaran AS 
+  SELECT * FROM public.pengeluaran_operasional;
+GRANT ALL ON TABLE public.pengeluaran TO anon, authenticated, service_role;

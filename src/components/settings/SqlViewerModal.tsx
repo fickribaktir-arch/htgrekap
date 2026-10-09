@@ -1,25 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Database, Copy, CheckCircle2, X } from 'lucide-react';
 import { motion } from 'motion/react';
-import { MASTER_TABLES_SQL, MIGRATION_UUID_TO_BIGINT_SQL } from '../../lib/masterSqlScript';
+import { MASTER_TABLES_SQL, MIGRATION_UUID_TO_BIGINT_SQL, PENGELUARAN_TABLE_SQL } from '../../lib/masterSqlScript';
 
 interface SqlViewerModalProps {
   isOpen: boolean;
   onClose: () => void;
   copiedSql?: boolean;
   onCopySql?: () => void;
+  initialTab?: 'pengeluaran' | 'migration' | 'schema';
 }
 
 export const SqlViewerModal: React.FC<SqlViewerModalProps> = ({
   isOpen,
   onClose,
+  initialTab = 'pengeluaran',
 }) => {
-  const [activeTab, setActiveTab] = useState<'migration' | 'schema'>('migration');
+  const [activeTab, setActiveTab] = useState<'pengeluaran' | 'migration' | 'schema'>(initialTab);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   if (!isOpen) return null;
 
-  const currentSql = activeTab === 'migration' ? MIGRATION_UUID_TO_BIGINT_SQL : MASTER_TABLES_SQL;
+  const currentSql = 
+    activeTab === 'pengeluaran' 
+      ? PENGELUARAN_TABLE_SQL 
+      : activeTab === 'migration' 
+      ? MIGRATION_UUID_TO_BIGINT_SQL 
+      : MASTER_TABLES_SQL;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(currentSql);
@@ -42,10 +55,18 @@ export const SqlViewerModal: React.FC<SqlViewerModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-black text-white">
-                Skrip SQL Master: Dapur, Toko &amp; Pemasok
+                {activeTab === 'pengeluaran'
+                  ? 'Skrip SQL: Tabel Pengeluaran Operasional'
+                  : activeTab === 'migration'
+                  ? 'Skrip SQL: Sinkronisasi Relasi BigInt'
+                  : 'Skrip SQL: Master Dapur, Toko & Pemasok'}
               </h3>
               <p className="text-[10px] text-slate-400 font-medium">
-                Format BigInt Identity (Efisien, Ringan, 100% Relasi Terjaga)
+                {activeTab === 'pengeluaran'
+                  ? 'Tabel public.pengeluaran_operasional (RLS, Indeks, & Realtime)'
+                  : activeTab === 'migration'
+                  ? 'Sinkronisasi ID Relasi BigInt untuk Pesanan & Transaksi'
+                  : 'Format BigInt Identity (Efisien, Ringan, 100% Relasi Terjaga)'}
               </p>
             </div>
           </div>
@@ -78,28 +99,39 @@ export const SqlViewerModal: React.FC<SqlViewerModalProps> = ({
         </div>
 
         {/* Tab Selector */}
-        <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+        <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab('pengeluaran')}
+            className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+              activeTab === 'pengeluaran'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Tabel Pengeluaran
+          </button>
           <button
             type="button"
             onClick={() => setActiveTab('migration')}
-            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all ${
+            className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
               activeTab === 'migration'
                 ? 'bg-indigo-600 text-white shadow-xs'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Migrasi UUID ke BigInt (Existing Data)
+            Migrasi BigInt
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('schema')}
-            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all ${
+            className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
               activeTab === 'schema'
                 ? 'bg-indigo-600 text-white shadow-xs'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Skema Tabel Baru (DDL Master)
+            Master Data
           </button>
         </div>
 
