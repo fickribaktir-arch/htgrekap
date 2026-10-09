@@ -1,4 +1,5 @@
 import { OrderItem, PaymentStatus, DeliveryStatus } from '../types';
+import { parseIndonesianNumber } from './formatters';
 
 export type DashboardStatusFilter = 'all' | 'delivered' | 'pending' | 'paid' | 'unpaid';
 
@@ -24,6 +25,10 @@ export interface DashboardSummaryMetrics {
   totalItems: number;
   displayedTrx: number;
   displayedItems: number;
+  totalPenjualan: number;
+  totalPengeluaran: number;
+  totalCashback: number;
+  totalLabaBersih: number;
   isValid: boolean;
   discrepancies: string[];
 }
@@ -177,6 +182,38 @@ export function computeAndValidateDashboardSummary(
   const totalItems = allFilteredOrders.length;
   const displayedItems = displayedOrders.length;
 
+  // Hitung Nilai Finansial Berdasarkan Data Pesanan Terfilter Aktif
+  let totalPenjualan = 0;
+  let totalPengeluaran = 0;
+  let totalCashback = 0;
+  let totalLabaBersih = 0;
+
+  for (let i = 0; i < displayedOrders.length; i++) {
+    const item = displayedOrders[i];
+    const rawQtyJual = parseIndonesianNumber(item.qty) || 0;
+    const rawQtyBeli = (item as any).qtyBeli !== undefined && (item as any).qtyBeli !== null
+      ? parseIndonesianNumber((item as any).qtyBeli)
+      : ((item as any).qty_beli !== undefined && (item as any).qty_beli !== null
+        ? parseIndonesianNumber((item as any).qty_beli)
+        : rawQtyJual);
+    const returQty = Math.max(0, Number(item.retur) || 0);
+    const qtyFinal = Math.max(0, rawQtyJual - returQty);
+    const qtyBeliEfektif = Math.max(0, rawQtyBeli - returQty);
+    const beli = parseIndonesianNumber(item.hargaBeli) || 0;
+    const jual = parseIndonesianNumber(item.hargaJual) || 0;
+    const cb = parseIndonesianNumber(item.cashback) || 0;
+
+    const modalItem = qtyBeliEfektif * beli;
+    const omzetItem = qtyFinal * jual;
+    const labaItem = cb > 0 ? ((cb - beli) * qtyFinal) : (omzetItem - modalItem);
+    const cashbackItem = cb > 0 ? (jual >= cb ? (jual - cb) * qtyFinal : cb * qtyFinal) : 0;
+
+    totalPenjualan += omzetItem;
+    totalPengeluaran += modalItem;
+    totalCashback += cashbackItem;
+    totalLabaBersih += labaItem;
+  }
+
   // Run Data Validation Assertions
   const discrepancies: string[] = [];
 
@@ -256,6 +293,10 @@ export function computeAndValidateDashboardSummary(
     totalItems,
     displayedTrx,
     displayedItems,
+    totalPenjualan,
+    totalPengeluaran,
+    totalCashback,
+    totalLabaBersih,
     isValid,
     discrepancies,
   };

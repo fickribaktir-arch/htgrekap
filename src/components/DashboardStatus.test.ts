@@ -255,4 +255,60 @@ describe('Dashboard Status Metrics Validation', () => {
     expect(summaryAnomaly.isValid).toBe(false);
     expect(summaryAnomaly.discrepancies.length).toBeGreaterThan(0);
   });
+
+  it('memastikan total penjualan dan total cashback terhitung dengan presisi di ringkasan dashboard', () => {
+    const mockOrdersWithCashback: OrderItem[] = [
+      {
+        id: 'cb-1',
+        namaBarang: 'Daging Ayam',
+        qty: 10,
+        retur: 0,
+        satuan: 'Kg',
+        hargaBeli: 20000,
+        hargaJual: 25000,
+        cashback: 22000, // Selisih cashback: (25.000 - 22.000) * 10 = 30.000
+        toko: 'HTG',
+        tujuanDapur: 'Dapur 1',
+        pemasok: 'Pemasok Ayam',
+        status: 'selesai',
+        tanggal: '2026-10-09',
+        paymentStatus: 'PAID',
+        deliveryStatus: 'DONE',
+        notaId: 'nota-cb-1',
+      },
+      {
+        id: 'cb-2',
+        namaBarang: 'Beras Premium',
+        qty: 20,
+        retur: 2, // Efektif 18 Kg
+        satuan: 'Kg',
+        hargaBeli: 12000,
+        hargaJual: 15000,
+        cashback: 0, // Tanpa cashback
+        toko: 'HTG',
+        tujuanDapur: 'Dapur 2',
+        pemasok: 'Pemasok Beras',
+        status: 'pending',
+        tanggal: '2026-10-09',
+        paymentStatus: 'UNPAID',
+        deliveryStatus: 'PENDING',
+        notaId: 'nota-cb-2',
+      },
+    ];
+
+    const displayed = filterOrdersByStatus(mockOrdersWithCashback, 'all');
+    const summary = computeAndValidateDashboardSummary(mockOrdersWithCashback, displayed, 'all');
+
+    // Penjualan: Item 1 (10 * 25.000 = 250.000) + Item 2 (18 * 15.000 = 270.000) = 520.000
+    expect(summary.totalPenjualan).toBe(520000);
+
+    // Cashback: Item 1 ((25.000 - 22.000) * 10 = 30.000) + Item 2 (0) = 30.000
+    expect(summary.totalCashback).toBe(30000);
+
+    // Pengeluaran: Item 1 (10 * 20.000 = 200.000) + Item 2 (18 * 12.000 = 216.000) = 416.000
+    expect(summary.totalPengeluaran).toBe(416000);
+
+    // Laba Bersih: Item 1 ((22.000 - 20.000) * 10 = 20.000) + Item 2 ((15.000 - 12.000) * 18 = 54.000) = 74.000
+    expect(summary.totalLabaBersih).toBe(74000);
+  });
 });
