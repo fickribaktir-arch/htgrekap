@@ -1,0 +1,383 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-slate-950: #08080a;
+  --color-slate-900: #101114;
+  --color-slate-850: #141519;
+  --color-slate-800: #191a1f;
+  --color-slate-700: #25272e;
+  --color-slate-600: #40434c;
+  --color-slate-500: #686d79;
+  --color-slate-400: #9499a4;
+  --color-slate-300: #c0c4cd;
+  --color-slate-200: #dfe1e6;
+  --color-slate-100: #eff0f3;
+  --color-slate-50: #f8f9fa;
+}
+
+:root {
+  --app-bg: #eef2f6;
+  --surface-bg: #ffffff;
+  --surface-card: #ffffff;
+  --surface-secondary: #f8fafc;
+  --border-subtle: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  color-scheme: light;
+}
+
+html.dark {
+  /* Slate neutral dark mapping - replaces Tailwind slate's heavy blue/navy tint with true dark neutral/charcoal tones */
+  --color-slate-950: #08080a;
+  --color-slate-900: #101114;
+  --color-slate-850: #141519;
+  --color-slate-800: #191a1f;
+  --color-slate-700: #25272e;
+  --color-slate-600: #40434c;
+  --color-slate-500: #686d79;
+  --color-slate-400: #9499a4;
+  --color-slate-300: #c0c4cd;
+  --color-slate-200: #dfe1e6;
+  --color-slate-100: #eff0f3;
+  --color-slate-50: #f8f9fa;
+
+  /* App surfaces (True Dark Charcoal) */
+  --app-bg: #090a0c;
+  --surface-bg: #101114;
+  --surface-card: #131418;
+  --surface-secondary: #191a1f;
+  --border-subtle: #24262d;
+  --text-primary: #f3f4f6;
+  --text-secondary: #c0c4cd;
+  --text-muted: #9499a4;
+  color-scheme: dark;
+}
+
+@layer base {
+  *, ::before, ::after {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+  /* Fix html2canvas FontMetrics bug where Tailwind's img { display: block } causes all text in canvas to shift down */
+  img {
+    display: inline-block;
+  }
+  body {
+    background: var(--app-bg);
+    color: var(--text-primary);
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    touch-action: manipulation;
+    min-height: 100vh;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  /* Form controls color-scheme & option styling for reliable dark mode dropdowns */
+  select, option, optgroup {
+    color-scheme: light;
+  }
+
+  html.dark select,
+  html.dark option,
+  html.dark optgroup {
+    color-scheme: dark !important;
+    background-color: #101114 !important;
+    color: #f3f4f6 !important;
+  }
+
+  html:not(.dark) select,
+  html:not(.dark) option,
+  html:not(.dark) optgroup {
+    color-scheme: light !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+  }
+}
+
+/* Typography for all numbers & prices (Plus Jakarta Sans with tabular lining figures for clear readability) */
+.font-nominal,
+.font-price {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-feature-settings: 'tnum' on, 'lnum' on;
+  letter-spacing: -0.01em;
+}
+
+/* Claymorphism Custom Classes - Light single-layer box-shadow for tablet GPU efficiency */
+.clay-card {
+  background: #ffffff;
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  transition: all 0.2s ease-in-out;
+}
+
+.clay-card-flat {
+  background: #f8fafc;
+  border-radius: 1.25rem;
+  box-shadow: none;
+  border: 1px solid #e2e8f0;
+}
+
+.clay-btn {
+  background: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05);
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  font-weight: 700;
+  transition: all 0.15s ease-in-out;
+}
+
+.clay-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(15, 23, 42, 0.08);
+}
+
+.clay-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+  background: #f1f5f9;
+}
+
+.clay-btn-primary {
+  background: linear-gradient(135deg, #4f46e5, #4338ca);
+  color: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.35);
+  border: 1px solid #3730a3;
+  font-weight: 700;
+  transition: all 0.15s ease-in-out;
+}
+
+.clay-btn-primary:hover {
+  background: linear-gradient(135deg, #4338ca, #3730a3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.45);
+}
+
+.clay-btn-primary:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.clay-btn-danger {
+  background: linear-gradient(135deg, #f43f5e, #e11d48);
+  color: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 2px 6px rgba(244, 63, 94, 0.35);
+  border: 1px solid #be123c;
+  font-weight: 700;
+  transition: all 0.15s ease-in-out;
+}
+
+.clay-btn-danger:hover {
+  background: linear-gradient(135deg, #e11d48, #be123c);
+  transform: translateY(-1px);
+}
+
+.clay-btn-danger:active {
+  transform: translateY(1px);
+}
+
+.clay-input {
+  background: #f8fafc;
+  border-radius: 0.875rem;
+  box-shadow: 
+    inset 3px 3px 6px rgba(166, 180, 200, 0.25),
+    inset -3px -3px 6px rgba(255, 255, 255, 0.9);
+  border: 1.5px solid #cbd5e1;
+  color: #0f172a;
+  transition: all 0.15s ease;
+}
+
+.clay-input:focus {
+  outline: none;
+  border-color: #4338ca;
+  background: #ffffff;
+  box-shadow: 
+    0 0 0 3px rgba(67, 56, 202, 0.15),
+    inset 2px 2px 4px rgba(166, 180, 200, 0.15);
+}
+
+.clay-pill-active {
+  background: #4338ca;
+  color: #ffffff;
+  font-weight: 800;
+  border: 1px solid #3730a3;
+  box-shadow: 
+    3px 3px 8px rgba(67, 56, 202, 0.35),
+    inset 1px 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+.clay-badge-green {
+  background: #dcfce7;
+  color: #14532d;
+  border: 1px solid #86efac;
+  border-radius: 9999px;
+  font-weight: 800;
+  box-shadow: 2px 2px 5px rgba(134, 239, 172, 0.3);
+}
+
+.clay-badge-rose {
+  background: #ffe4e6;
+  color: #881337;
+  border: 1px solid #fca5a5;
+  border-radius: 9999px;
+  font-weight: 800;
+  box-shadow: 2px 2px 5px rgba(252, 165, 165, 0.3);
+}
+
+/* Dark Mode Overrides for Clay Classes */
+html.dark .clay-card {
+  background: #131418;
+  border-color: #24262d;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+html.dark .clay-card-flat {
+  background: #101114;
+  border-color: #24262d;
+  box-shadow: none;
+}
+
+html.dark .clay-btn {
+  background: #191a1f;
+  border-color: #2a2d36;
+  color: #f3f4f6;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+}
+html.dark .clay-btn:hover {
+  background: #25272e;
+  border-color: #383c48;
+}
+html.dark .clay-btn:active {
+  background: #101114;
+}
+
+html.dark .clay-input {
+  background: #101114;
+  border-color: #25272e;
+  color: #f3f4f6;
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.5);
+}
+html.dark .clay-input:focus {
+  background: #131418;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Print Stylesheet for Real-Time Invoice Printing */
+@media print {
+  /* Hide non-printable page elements during print */
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  body > *:not(.printable-modal-overlay) {
+    display: none !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  /* Modal overlay reset for print */
+  .printable-modal-overlay {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    background: #ffffff !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Printable invoice area full screen */
+  .printable-area {
+    position: relative !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 24px !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  .print-page-break {
+    page-break-after: always;
+  }
+}
+
+/* ==========================================================================
+   RESPONSIVE TABLET LANDSCAPE BREAKPOINTS (768px - 1280px, landscape)
+   ========================================================================== */
+@media (min-width: 768px) and (max-width: 1280px) and (orientation: landscape) {
+  /* 2-Column Grid for Card Lists on Tablet Landscape */
+  .tablet-landscape-grid-2 {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.875rem !important;
+  }
+
+  /* 3-Column Horizontal Parallel Grid for Metric Summary Cards */
+  .tablet-landscape-grid-3 {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+
+  /* 4-Column Horizontal Parallel Grid for Financial Metrics */
+  .tablet-landscape-grid-4 {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Allow Left Duo/Trio stats box to expand across top on landscape */
+  .tablet-landscape-full-col {
+    grid-column: 1 / -1 !important;
+  }
+
+  /* Clean max-width and center alignment for Modals */
+  .tablet-landscape-modal {
+    max-width: 860px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    border-radius: 1.5rem !important;
+  }
+}
+
+

@@ -1,0 +1,1931 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { 
+  X, 
+  Plus, 
+  Utensils, 
+  Store, 
+  Truck, 
+  Calendar, 
+  Trash2,
+  AlertCircle,
+  Clock,
+  CheckCircle,
+  Search,
+  ChevronDown
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  OrderItem, 
+  Kitchen, 
+  Store as StoreType, 
+  MasterToko, 
+  MasterPemasok, 
+  MasterDapur,
+  MasterSatuan,
+  PaymentStatus,
+  DeliveryStatus
+} from '../types';
+import { getTodayWIB, formatTanggalWeb } from '../lib/formatters';
+import { getItemSuggestions } from '../lib/suggestions';
+import { 
+  saveMasterTokoToDb, 
+  saveMasterPemasokToDb, 
+  saveMasterDapurToDb,
+  saveMasterSatuanToDb 
+} from '../lib/supabaseDb';
+import { MoneyInput, formatIDR } from './MoneyInput';
+import { ProfitPreview } from './ProfitPreview';
+import { OrderSummary } from './OrderSummary';
+import { StatusSegment } from './StatusSegment';
+import { SatuanAutocomplete } from './SatuanAutocomplete';
+import { PemasokAutocomplete } from './PemasokAutocomplete';
+
+interface OrderModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (
+    orderData: Omit<OrderItem, 'id' | 'createdAt'> | Array<Omit<OrderItem, 'id' | 'createdAt'>>,
+    editId?: string
+  ) => void;
+  initialData?: OrderItem | null;
+  initialItems?: OrderItem[];
+  prefilledKitchen?: string;
+  kitchens: Kitchen[];
+  stores: StoreType[];
+  pemasokList: string[];
+  masterToko?: MasterToko[];
+  masterPemasok?: MasterPemasok[];
+  masterDapur?: MasterDapur[];
+  masterSatuan?: MasterSatuan[];
+  onAddMasterSatuan?: (nama: string) => Promise<{ success: boolean; error?: string }>;
+  onRefreshMaster?: () => Promise<void>;
+  selectedDate: string;
+  existingOrders?: OrderItem[];
+  exportHistory?: any[];
+}
+
+interface ItemRow {
+  id: string;
+  namaBarang: string;
+  qty: number;
+  qtyBeli?: number;
+  satuan: string;
+  hargaBeli: number;
+  hargaJual: number;
+  cashback?: number;
+  retur?: number;
+  pemasok?: string;
+  pemasok_id?: string;
+}
+
+const COMMON_UNITS = ['Kg', 'Gram', 'Pcs', 'Ikat', 'Tray', 'Pack', 'Liter', 'Box', 'Karung', 'Ekor'];
+
+export const OrderModal: React.FC<OrderModalProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  initialData,
+  initialItems = [],
+  prefilledKitchen,
+  kitchens = [],
+  stores = [],
+  pemasokList = [],
+  masterToko = [],
+  masterPemasok = [],
+  masterDapur = [],
+  masterSatuan = [],
+  onAddMasterSatuan,
+  onRefreshMaster,
+  selectedDate,
+  existingOrders = [],
+  exportHistory = [],
+}) => {
+  const [itemRows, setItemRows] = useState<ItemRow[]>([]);
+  const [activeItemIndex, setActiveItemIndex] = useState<number>(0);
+  const [toko, setToko] = useState('');
+  const [tokoId, setTokoId] = useState<string>('');
+  const [tujuanDapur, setTujuanDapur] = useState('');
+  const [tujuanDapurId, setTujuanDapurId] = useState<string>('');
+  const [pemasok, setPemasok] = useState('');
+  const [pemasokId, setPemasokId] = useState<string>('');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('UNPAID');
+  const [deliveryStatus, setDeliveryStatus] = useState<DeliveryStatus>('PEMASOK');
+  const [tanggal, setTanggal] = useState(selectedDate || getTodayWIB());
+  const [catatan, setCatatan] = useState('');
+
+  // Deteksi perubahan nomor invoice saat edit pesanan jika tanggal/toko diubah (Aturan 12)
+  const invoiceChangeWarning = useMemo(() => {
+    if (!initialData) return null;
+    const currentInv = initialData.invoiceNumber || (initialData as any).invoice_number;
+    if (!currentInv || typeof currentInv !== 'string') return null;
+
+    const initialDate = initialData.tanggal || '';
+    const initialToko = initialData.toko || '';
+    const isDateChanged = tanggal && tanggal !== initialDate;
+    const isTokoChanged = (toko && toko !== initialToko) || (tokoId && tokoId !== (initialData.toko_id || initialData.tokoId));
+
+    if (!isDateChanged && !isTokoChanged) return null;
+
+    // Parse format PREFIX/SEQ/ROMAWI/TAHUN
+    const parts = currentInv.split('/');
+    if (parts.length !== 4) return null;
+    const [, seq, , oldYearStr] = parts;
+
+    // Ambil kode_invoice dari toko yang dipilih
+    const matchedToko = masterToko.find((t) => String(t.id) === String(tokoId) || t.nama.toLowerCase() === (toko || '').toLowerCase());
+    let newPrefix = matchedToko?.kode_invoice;
+    if (!newPrefix) {
+      const tLow = (toko || '').toLowerCase();
+      if (tLow.includes('luweng') || tLow.includes('lb')) newPrefix = 'LB';
+      else if (tLow.includes('htg')) newPrefix = 'HTG';
+      else if (tLow.includes('adifru') || tLow.includes('la') || tLow.includes('lumbung')) newPrefix = 'LA';
+      else if (tLow.includes('prohe') || tLow.includes('pw') || tLow.includes('ph')) newPrefix = 'PH';
+      else newPrefix = parts[0];
+    }
+
+    const newYear = parseInt(tanggal.slice(0, 4), 10) || parseInt(oldYearStr, 10);
+    const newMonth = parseInt(tanggal.slice(5, 7), 10) || 1;
+    const ROMAN_ARR = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+    const newRomawi = ROMAN_ARR[newMonth - 1] || 'I';
+
+    let previewNomor = '';
+    if (newYear === parseInt(oldYearStr, 10)) {
+      previewNomor = `${newPrefix}/${seq}/${newRomawi}/${newYear}`;
+    } else {
+      previewNomor = `${newPrefix}/[SEQ Baru]/${newRomawi}/${newYear}`;
+    }
+
+    if (previewNomor === currentInv) return null;
+
+    return {
+      oldNumber: currentInv,
+      newNumber: previewNomor,
+    };
+  }, [initialData, tanggal, toko, tokoId, masterToko]);
+
+  // Tracking open/data switch to prevent form resets on master data updates
+  const prevIsOpenRef = useRef(false);
+  const prevInitialDataIdRef = useRef<string | null | undefined>(undefined);
+
+  // Autocomplete UI states for Toko, Dapur, and Pemasok
+  const [isTokoOpen, setIsTokoOpen] = useState(false);
+  const [isDapurOpen, setIsDapurOpen] = useState(false);
+  const [isPemasokOpen, setIsPemasokOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const tokoInputRef = useRef<HTMLInputElement>(null);
+  const dapurInputRef = useRef<HTMLInputElement>(null);
+  const pemasokInputRef = useRef<HTMLInputElement>(null);
+
+  // Quick Add Master State
+  const [quickAddType, setQuickAddType] = useState<'toko' | 'pemasok' | 'dapur' | null>(null);
+  const [quickAddNama, setQuickAddNama] = useState('');
+  const [quickAddAlamat, setQuickAddAlamat] = useState('');
+  const [quickAddLoading, setQuickAddLoading] = useState(false);
+  const [quickAddError, setQuickAddError] = useState<string | null>(null);
+
+  // Suggestion engine states
+  const [activeSuggestionRowId, setActiveSuggestionRowId] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [selectedSugIdx, setSelectedSugIdx] = useState<number>(0);
+
+  const handleAddMasterSatuanInternal = async (nama: string) => {
+    if (onAddMasterSatuan) {
+      return await onAddMasterSatuan(nama);
+    }
+    const res = await saveMasterSatuanToDb(nama);
+    if (res.success && onRefreshMaster) {
+      await onRefreshMaster();
+    }
+    return { success: res.success, error: res.error };
+  };
+
+  // Computed master lists
+  const availableKitchens = masterDapur.length > 0 ? masterDapur.map((d) => d.nama) : kitchens.map((k) => k.nama);
+  const availablePemasok = masterPemasok.length > 0 ? masterPemasok.map((p) => p.nama) : pemasokList;
+
+  // Filtered lists for Autocomplete
+  const filteredTokoSuggestions = useMemo(() => {
+    const q = toko.trim().toLowerCase();
+    const pool = masterToko.length > 0 ? masterToko : stores.map((s, idx) => ({ id: s.id || `t-${idx}`, nama: s.nama }));
+    if (!q) return pool;
+    return pool.filter((t) => t.nama.toLowerCase().includes(q));
+  }, [toko, masterToko, stores]);
+
+  const filteredKitchenSuggestions = useMemo(() => {
+    const q = tujuanDapur.trim().toLowerCase().replace(/^dapur\s+/i, '');
+    const pool = masterDapur.length > 0 ? masterDapur : kitchens.map((k) => ({ id: k.id, nama: k.nama, alamat: k.lokasi || '' }));
+    if (!q) return pool;
+    return pool.filter((d) => {
+      const namaClean = d.nama.toLowerCase().replace(/^dapur\s+/i, '');
+      const alamatClean = (d.alamat || '').toLowerCase();
+      return namaClean.includes(q) || alamatClean.includes(q);
+    });
+  }, [tujuanDapur, masterDapur, kitchens]);
+
+  const filteredPemasokSuggestions = useMemo(() => {
+    const q = pemasok.trim().toLowerCase();
+    const pool = masterPemasok.length > 0 ? masterPemasok : pemasokList.map((p, idx) => ({ id: `p-${idx}`, nama: p }));
+    if (!q) return pool;
+    return pool.filter((p) => p.nama.toLowerCase().includes(q));
+  }, [pemasok, masterPemasok, pemasokList]);
+
+  // Memoized existing item names for fast auto-suggest (prevent recalculation on keystrokes)
+  const existingNames = useMemo(
+    () => Array.from(new Set(existingOrders.map((o) => o.namaBarang))),
+    [existingOrders]
+  );
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
+
+  // Initialize or reset form state only when modal opens or initialData/prefill target changes
+  useEffect(() => {
+    if (!isOpen) {
+      prevIsOpenRef.current = false;
+      return;
+    }
+
+    const currentDataId =
+      initialItems && initialItems.length > 0
+        ? `batch-${initialItems.map((i) => i.id).join('-')}`
+        : initialData?.id || (initialData ? 'has-initial-data' : null);
+    const isFirstOpen = !prevIsOpenRef.current;
+    const isDataChanged = prevInitialDataIdRef.current !== currentDataId;
+
+    prevIsOpenRef.current = true;
+    prevInitialDataIdRef.current = currentDataId;
+
+    // Only re-initialize values if modal was just opened OR the target record changed
+    if (!isFirstOpen && !isDataChanged) {
+      return;
+    }
+
+    const itemsToLoad: OrderItem[] =
+      initialItems && initialItems.length > 0
+        ? initialItems
+        : initialData
+        ? [initialData]
+        : [];
+
+    if (itemsToLoad.length > 0) {
+      const primary = itemsToLoad[0];
+      setItemRows(
+        itemsToLoad.map((item, idx) => ({
+          id: item.id || `item-${Date.now()}-${idx}`,
+          namaBarang: item.namaBarang,
+          qty: item.qty || 1,
+          qtyBeli: (item as any).qtyBeli ?? (item as any).qty_beli ?? item.qty ?? 1,
+          satuan: item.satuan !== undefined ? item.satuan : 'Kg',
+          hargaBeli: Math.round(item.hargaBeli || 0),
+          hargaJual: Math.round(item.hargaJual || 0),
+          cashback: item.cashback !== undefined ? Math.round(item.cashback) : 0,
+          retur: item.retur !== undefined ? Math.round(item.retur) : 0,
+          pemasok: item.pemasok || '',
+          pemasok_id: item.pemasok_id || (item as any).pemasokId || '',
+        }))
+      );
+
+      let startIdx = 0;
+      if (initialData) {
+        const found = itemsToLoad.findIndex((it) => it.id === initialData.id);
+        if (found >= 0) startIdx = found;
+      }
+      setActiveItemIndex(startIdx);
+
+      // Resolve Toko ID & Name
+      const primaryTokoId = primary.toko_id ?? (primary as any).tokoId;
+      const foundToko = masterToko.find(
+        (t) => t.id === primaryTokoId || t.nama.toLowerCase() === (primary.toko || '').toLowerCase()
+      );
+      setToko(foundToko ? foundToko.nama : (primary.toko || ''));
+      setTokoId(foundToko ? foundToko.id : (primaryTokoId || ''));
+
+      // Resolve Dapur ID & Name
+      const primaryDapurId = primary.dapur_id ?? (primary as any).dapurId;
+      const cleanInitDapur = (primary.tujuanDapur || '').replace(/^dapur\s+/i, '').trim().toLowerCase();
+      const foundDapur = masterDapur.find(
+        (d) => d.id === primaryDapurId ||
+          d.nama.toLowerCase() === (primary.tujuanDapur || '').toLowerCase() ||
+          d.nama.toLowerCase() === cleanInitDapur
+      );
+      setTujuanDapur(foundDapur ? foundDapur.nama : (primary.tujuanDapur || ''));
+      setTujuanDapurId(foundDapur ? foundDapur.id : (primaryDapurId || ''));
+
+      // Resolve Pemasok ID & Name
+      const primaryPemasokId = primary.pemasok_id ?? (primary as any).pemasokId;
+      const foundPemasok = masterPemasok.find(
+        (p) => p.id === primaryPemasokId || p.nama.toLowerCase() === (primary.pemasok || '').toLowerCase()
+      );
+      setPemasok(foundPemasok ? foundPemasok.nama : (primary.pemasok || ''));
+      setPemasokId(foundPemasok ? foundPemasok.id : (primaryPemasokId || ''));
+
+      setPaymentStatus(primary.paymentStatus || (primary.status === 'selesai' ? 'PAID' : 'UNPAID'));
+      const rawInitDel = (primary.deliveryStatus || (primary as any).status_pengiriman || (primary.status === 'selesai' ? 'DONE' : 'PEMASOK')).toString().toUpperCase();
+      setDeliveryStatus(rawInitDel === 'DONE' ? 'DONE' : (rawInitDel === 'DRIVER' ? 'DRIVER' : 'PEMASOK'));
+      setTanggal(primary.tanggal || selectedDate || getTodayWIB());
+      setCatatan(primary.catatan || '');
+    } else {
+      setItemRows([
+        {
+          id: `item-${Date.now()}`,
+          namaBarang: '',
+          pemasok: '',
+          pemasok_id: '',
+          qty: 1,
+          satuan: 'Kg',
+          hargaBeli: 0,
+          hargaJual: 0,
+          cashback: 0,
+          retur: 0,
+        },
+      ]);
+      setActiveItemIndex(0);
+      setToko('');
+      setTokoId('');
+
+      if (prefilledKitchen) {
+        const cleanPrefill = prefilledKitchen.replace(/^dapur\s+/i, '').trim().toLowerCase();
+        const foundD = masterDapur.find(
+          (d) => d.nama.toLowerCase() === prefilledKitchen.toLowerCase() || d.nama.toLowerCase() === cleanPrefill
+        );
+        setTujuanDapur(foundD ? foundD.nama : prefilledKitchen);
+        setTujuanDapurId(foundD ? foundD.id : '');
+      } else {
+        setTujuanDapur('');
+        setTujuanDapurId('');
+      }
+
+      setPemasok('');
+      setPemasokId('');
+      setPaymentStatus('UNPAID');
+      setDeliveryStatus('PEMASOK');
+      setTanggal(selectedDate || getTodayWIB());
+      setCatatan('');
+    }
+
+    setIsTokoOpen(false);
+    setIsDapurOpen(false);
+    setIsPemasokOpen(false);
+
+  }, [initialData, prefilledKitchen, isOpen, selectedDate, masterToko, masterDapur, masterPemasok]);
+
+  const handleQuickAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanNama = quickAddNama.trim();
+    if (!cleanNama) {
+      setQuickAddError('Nama tidak boleh kosong');
+      return;
+    }
+
+    setQuickAddLoading(true);
+    setQuickAddError(null);
+    try {
+      if (quickAddType === 'toko') {
+        const res = await saveMasterTokoToDb(cleanNama);
+        if (!res.success) throw new Error(res.error || 'Gagal menyimpan toko');
+        const finalNama = res.data?.nama || cleanNama;
+        setToko(finalNama);
+        if (res.data?.id) {
+          setTokoId(res.data.id);
+        }
+      } else if (quickAddType === 'pemasok') {
+        const res = await saveMasterPemasokToDb(cleanNama);
+        if (!res.success) throw new Error(res.error || 'Gagal menyimpan pemasok');
+        const finalNama = res.data?.nama || cleanNama;
+        setPemasok(finalNama);
+        if (res.data?.id) {
+          setPemasokId(res.data.id);
+        }
+      } else if (quickAddType === 'dapur') {
+        const res = await saveMasterDapurToDb(cleanNama, quickAddAlamat.trim());
+        if (!res.success) throw new Error(res.error || 'Gagal menyimpan dapur');
+        const finalNama = res.data?.nama || cleanNama;
+        setTujuanDapur(finalNama);
+        if (res.data?.id) {
+          setTujuanDapurId(res.data.id);
+        }
+      }
+
+      await onRefreshMaster?.();
+      setQuickAddType(null);
+      setQuickAddNama('');
+      setQuickAddAlamat('');
+    } catch (err: any) {
+      setQuickAddError(err?.message || 'Gagal menambahkan');
+    } finally {
+      setQuickAddLoading(false);
+    }
+  };
+
+  const currentItem = itemRows[activeItemIndex] || itemRows[0] || {
+    id: 'default',
+    namaBarang: '',
+    qty: 1,
+    satuan: 'Kg',
+    hargaBeli: 0,
+    hargaJual: 0,
+    cashback: 0,
+    retur: 0,
+  };
+
+  const updateCurrentItem = (field: keyof ItemRow, value: any) => {
+    setItemRows((prev) => {
+      const copy = [...prev];
+      const targetIdx = activeItemIndex < copy.length ? activeItemIndex : 0;
+      copy[targetIdx] = {
+        ...copy[targetIdx],
+        [field]: value,
+      };
+      return copy;
+    });
+  };
+
+  const addItemRow = () => {
+    const newItem: ItemRow = {
+      id: `item-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      namaBarang: '',
+      pemasok: pemasok || '',
+      pemasok_id: pemasokId || '',
+      qty: 1,
+      satuan: 'Kg',
+      hargaBeli: 0,
+      hargaJual: 0,
+      cashback: 0,
+      retur: 0,
+    };
+    setItemRows((prev) => [...prev, newItem]);
+    setActiveItemIndex(itemRows.length);
+  };
+
+  const removeItemRow = (index: number) => {
+    if (itemRows.length <= 1) return;
+    setItemRows((prev) => prev.filter((_, idx) => idx !== index));
+    if (activeItemIndex >= index && activeItemIndex > 0) {
+      setActiveItemIndex(activeItemIndex - 1);
+    }
+  };
+
+  // Suggestion handling when typing Nama Barang with 150ms debounce
+  const handleItemNameChange = (val: string) => {
+    updateCurrentItem('namaBarang', val);
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    if (val.trim().length >= 1) {
+      const rowId = currentItem.id;
+      debounceTimerRef.current = setTimeout(() => {
+        const results = getItemSuggestions(val, existingNames, 8);
+        setSuggestions(results);
+        setSelectedSugIdx(0);
+        setActiveSuggestionRowId(rowId);
+      }, 150);
+    } else {
+      setSuggestions([]);
+      setActiveSuggestionRowId(null);
+    }
+  };
+
+  const handleItemKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (activeSuggestionRowId === currentItem.id && suggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedSugIdx((prev) => (prev + 1) % suggestions.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedSugIdx((prev) => (prev - 1 + suggestions.length) % suggestions.length);
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        const chosen = suggestions[selectedSugIdx];
+        if (chosen) {
+          selectSuggestion(chosen);
+        }
+      } else if (e.key === 'Escape') {
+        setActiveSuggestionRowId(null);
+      }
+    }
+  };
+
+  const selectSuggestion = (itemText: string) => {
+    updateCurrentItem('namaBarang', itemText);
+
+    const match = existingOrders.find(
+      (o) => o.namaBarang.toLowerCase() === itemText.toLowerCase() && (o.hargaBeli > 0 || o.hargaJual > 0)
+    );
+    if (match) {
+      updateCurrentItem('hargaBeli', match.hargaBeli || 0);
+      updateCurrentItem('hargaJual', match.hargaJual || 0);
+    }
+
+    setActiveSuggestionRowId(null);
+  };
+
+  // Grand totals across all items (memoized)
+  const totalModalSemua = useMemo(() => {
+    return itemRows.reduce(
+      (sum, r) => {
+        const rawQJual = Number(r.qty) || 0;
+        const rawQBeli = r.qtyBeli !== undefined && r.qtyBeli !== null ? Number(r.qtyBeli) : rawQJual;
+        const ret = Math.max(0, Number(r.retur) || 0);
+        const qBeliEfektif = Math.max(0, rawQBeli - ret);
+        return sum + qBeliEfektif * (Number(r.hargaBeli) || 0);
+      },
+      0
+    );
+  }, [itemRows]);
+
+  const totalPenjualanSemua = useMemo(() => {
+    return itemRows.reduce(
+      (sum, r) => {
+        const rawQ = Number(r.qty) || 0;
+        const ret = Math.max(0, Number(r.retur) || 0);
+        const qFinal = Math.max(0, rawQ - ret);
+        return sum + qFinal * (Number(r.hargaJual) || 0);
+      },
+      0
+    );
+  }, [itemRows]);
+
+  // Grand totals laba bersih & ke koperasi across all items
+  const { totalLabaBersihSemua, totalKeKoperasiSemua } = useMemo(() => {
+    let laba = 0;
+    let kop = 0;
+    itemRows.forEach((r) => {
+      const rawQJual = Number(r.qty) || 0;
+      const rawQBeli = r.qtyBeli !== undefined && r.qtyBeli !== null ? Number(r.qtyBeli) : rawQJual;
+      const ret = Math.max(0, Number(r.retur) || 0);
+      const qFinal = Math.max(0, rawQJual - ret);
+      const qBeliEfektif = Math.max(0, rawQBeli - ret);
+      const hb = Number(r.hargaBeli) || 0;
+      const hj = Number(r.hargaJual) || 0;
+      const cb = Number(r.cashback) || 0;
+      const modal = qBeliEfektif * hb;
+      const omzet = qFinal * hj;
+      if (cb > 0) {
+        laba += ((cb - hb) * qFinal);
+        kop += (hj - cb) * qFinal;
+      } else {
+        laba += (omzet - modal);
+      }
+    });
+    return { totalLabaBersihSemua: laba, totalKeKoperasiSemua: kop };
+  }, [itemRows]);
+
+  // Cek apakah semua item valid sudah memiliki pemasok masing-masing
+  const allItemsHavePemasok = useMemo(() => {
+    const validRows = itemRows.filter((r) => r.namaBarang && r.namaBarang.trim() !== '');
+    if (validRows.length === 0) return false;
+    return validRows.every((r) => r.pemasok && r.pemasok.trim() !== '');
+  }, [itemRows]);
+
+  // Form validity check
+  const isFormValid =
+    tanggal.trim() !== '' &&
+    toko.trim() !== '' &&
+    tujuanDapur.trim() !== '' &&
+    (allItemsHavePemasok || pemasok.trim() !== '') &&
+    itemRows.some((r) => r.namaBarang && r.namaBarang.trim() !== '') &&
+    itemRows
+      .filter((r) => r.namaBarang && r.namaBarang.trim() !== '')
+      .every(
+        (r) =>
+          Number(r.qty) > 0 &&
+          Number(r.hargaBeli) >= 0 &&
+          Number(r.hargaJual) >= 0 &&
+          (Number(r.retur) || 0) >= 0 &&
+          (Number(r.retur) || 0) <= Number(r.qty) &&
+          (allItemsHavePemasok || (r.pemasok && r.pemasok.trim() !== '') || pemasok.trim() !== '')
+      );
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    const cleanToko = toko.trim();
+    const cleanDapur = tujuanDapur.trim();
+    const cleanPemasok = pemasok.trim();
+
+    if (!cleanToko) {
+      alert('Mohon pilih Toko terlebih dahulu.');
+      return;
+    }
+    if (!cleanDapur) {
+      alert('Mohon isi atau pilih Dapur terlebih dahulu.');
+      return;
+    }
+    if (!cleanPemasok && !allItemsHavePemasok) {
+      alert('Mohon isi atau pilih Pemasok terlebih dahulu.');
+      return;
+    }
+
+    // WAJIB: Filter placeholder item kosong dari array sebelum submit
+    const validItemRows = itemRows.filter((r) => r.namaBarang && r.namaBarang.trim() !== '');
+
+    if (validItemRows.length === 0) {
+      alert('Mohon lengkapi minimal satu nama barang.');
+      return;
+    }
+
+    // Validasi setiap item valid: qty harus > 0, validasi retur, dan validasi cashback
+    for (let i = 0; i < validItemRows.length; i++) {
+      const row = validItemRows[i];
+      const q = Number(row.qty) || 0;
+      if (q <= 0) {
+        alert(`Jumlah (qty) untuk ${row.namaBarang} harus lebih besar dari 0.`);
+        return;
+      }
+
+      const ret = Number(row.retur) || 0;
+      if (ret < 0) {
+        alert(`Retur untuk ${row.namaBarang} tidak boleh bernilai negatif.`);
+        return;
+      }
+      if (ret > q) {
+        alert(`Retur untuk ${row.namaBarang} (${ret}) tidak boleh lebih besar dari Qty Jual (${q}).`);
+        return;
+      }
+
+      const cb = Number(row.cashback) || 0;
+      const hb = Number(row.hargaBeli) || 0;
+      const hj = Number(row.hargaJual) || 0;
+
+      if (cb > 0) {
+        if (cb < hb || cb > hj) {
+          alert(`Cashback ${row.namaBarang} harus di antara ${formatIDR(hb)} dan ${formatIDR(hj)}`);
+          return;
+        }
+      }
+    }
+
+    setIsSubmitting(true);
+
+    // Auto-create Master Dapur if not found in database (case-insensitive & trimmed)
+    let finalDapurId = tujuanDapurId;
+    let finalDapurName = cleanDapur;
+    const cleanDapurCheck = cleanDapur.replace(/^dapur\s+/i, '').trim().toLowerCase();
+    const matchedDapur = masterDapur.find(
+      (d) => d.nama.trim().toLowerCase() === cleanDapur.toLowerCase() ||
+             d.nama.trim().toLowerCase() === cleanDapurCheck ||
+             d.nama.trim().toLowerCase().replace(/^dapur\s+/i, '') === cleanDapurCheck
+    );
+
+    if (matchedDapur) {
+      finalDapurId = matchedDapur.id;
+      finalDapurName = matchedDapur.nama;
+    } else {
+      // Dapur baru: otomatis simpan ke Master Supabase
+      const newDapurName = cleanDapur.replace(/^dapur\s+/i, '').trim();
+      const saveRes = await saveMasterDapurToDb(newDapurName);
+      if (saveRes.success && saveRes.data?.id) {
+        finalDapurId = saveRes.data.id;
+        finalDapurName = saveRes.data.nama || newDapurName;
+      }
+      if (onRefreshMaster) await onRefreshMaster();
+    }
+
+    // Auto-create Master Pemasok if not found in database (case-insensitive & trimmed)
+    let finalPemasokId = pemasokId;
+    let finalPemasokName = cleanPemasok;
+
+    if (cleanPemasok) {
+      const matchedPemasok = masterPemasok.find(
+        (p) => p.nama.trim().toLowerCase() === cleanPemasok.toLowerCase()
+      );
+
+      if (matchedPemasok) {
+        finalPemasokId = matchedPemasok.id;
+        finalPemasokName = matchedPemasok.nama;
+      } else {
+        // Pemasok baru: otomatis simpan ke Master Supabase
+        const saveRes = await saveMasterPemasokToDb(cleanPemasok);
+        if (saveRes.success && saveRes.data?.id) {
+          finalPemasokId = saveRes.data.id;
+          finalPemasokName = saveRes.data.nama || cleanPemasok;
+        }
+        if (onRefreshMaster) await onRefreshMaster();
+      }
+    }
+
+    // Auto-create Master Toko if not found in database (case-insensitive & trimmed)
+    let finalTokoId = tokoId;
+    let finalTokoName = cleanToko;
+    const matchedToko = masterToko.find(
+      (t) => String(t.id) === String(cleanToko) || 
+             String(t.id) === String(tokoId) || 
+             t.nama.trim().toLowerCase() === cleanToko.toLowerCase()
+    );
+    if (matchedToko) {
+      finalTokoId = matchedToko.id;
+      finalTokoName = matchedToko.nama;
+    } else {
+      const saveRes = await saveMasterTokoToDb(cleanToko);
+      if (saveRes.success && saveRes.data?.id) {
+        finalTokoId = saveRes.data.id;
+        finalTokoName = saveRes.data.nama || cleanToko;
+      }
+      if (onRefreshMaster) await onRefreshMaster();
+    }
+
+    const calculatedStatus =
+      deliveryStatus === 'DONE' && paymentStatus === 'PAID' ? 'selesai' : 'pending';
+
+    if (initialData || (initialItems && initialItems.length > 0)) {
+      if (!finalDapurName.trim()) {
+        alert('Dapur tujuan wajib diisi!');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const singleNotaId =
+        initialData?.notaId ||
+        initialData?.nota_id ||
+        (initialItems && initialItems[0]?.notaId) ||
+        (initialItems && initialItems[0]?.nota_id) ||
+        `nota-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+      // Mapping semua item valid (item pertama adalah item yang diedit, item berikutnya adalah item baru)
+      const allItemPayloads = validItemRows.map((row, idx) => {
+        const rowQty = Number(row.qty) || 0;
+        const rowPemasok = (row.pemasok || '').trim();
+        const effectivePemasokName = rowPemasok || finalPemasokName;
+        const matchedRowPemasok = masterPemasok.find(
+          (p) => p.nama.trim().toLowerCase() === effectivePemasokName.toLowerCase()
+        );
+        const effectivePemasokId = matchedRowPemasok?.id || (rowPemasok ? '' : finalPemasokId);
+
+        return {
+          id: row.id,
+          namaBarang: row.namaBarang.trim(),
+          item: row.namaBarang.trim(),
+          qty: rowQty,
+          qtyBeli: rowQty,
+          qty_beli: rowQty,
+          notaId: singleNotaId,
+          nota_id: singleNotaId,
+          satuan: row.satuan?.trim() || 'Kg',
+          hargaBeli: Math.max(0, Number(row.hargaBeli) || 0),
+          hargaJual: Math.max(0, Number(row.hargaJual) || 0),
+          cashback: Number(row.cashback) > 0 ? Number(row.cashback) : 0,
+          retur: Math.max(0, Number(row.retur) || 0),
+          toko: finalTokoName,
+          toko_id: finalTokoId,
+          tujuanDapur: finalDapurName,
+          dapur: finalDapurName,
+          dapur_id: finalDapurId,
+          pemasok: effectivePemasokName,
+          pemasok_id: effectivePemasokId,
+          status: calculatedStatus,
+          paymentStatus,
+          deliveryStatus,
+          tanggal,
+          catatan: catatan.trim(),
+          invoiceNumber: initialData?.invoiceNumber || (initialData as any)?.invoice_number || (initialItems && initialItems[0]?.invoiceNumber),
+          invoice_number: initialData?.invoiceNumber || (initialData as any)?.invoice_number || (initialItems && initialItems[0]?.invoice_number),
+          isNewItem: idx > 0,
+        };
+      });
+
+      console.log('FINAL ITEMS TO INSERT (EDIT MODE)', allItemPayloads);
+
+      if (allItemPayloads.length === 0) {
+        alert('Nama barang dan Dapur wajib diisi!');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const activePrimary = initialData || (initialItems && initialItems[0]);
+      const isDateChanged = activePrimary?.tanggal && activePrimary.tanggal !== tanggal;
+      const isStoreChanged = (activePrimary?.toko && activePrimary.toko !== finalTokoName) || (activePrimary?.toko_id && String(activePrimary.toko_id) !== String(finalTokoId));
+      if (isDateChanged || isStoreChanged) {
+        const matchedTokoObj = masterToko.find((t) => String(t.id) === String(finalTokoId) || t.nama.toLowerCase() === finalTokoName.toLowerCase());
+        const prefix = matchedTokoObj?.kode_invoice || (finalTokoName.includes('LB') ? 'LB' : finalTokoName.includes('LA') ? 'LA' : finalTokoName.includes('PROHE') || finalTokoName.includes('PW') ? 'PH' : 'HTG');
+        const dObj = new Date(tanggal);
+        const y = !isNaN(dObj.getFullYear()) ? dObj.getFullYear() : parseInt(tanggal.slice(0, 4), 10) || new Date().getFullYear();
+        const m = !isNaN(dObj.getMonth()) ? dObj.getMonth() + 1 : parseInt(tanggal.slice(5, 7), 10) || 1;
+        const romawi = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'][m - 1] || 'I';
+        const oldInvParts = (activePrimary?.invoiceNumber || (activePrimary as any)?.invoice_number || '').split('/');
+        const oldSeq = oldInvParts.length >= 2 ? oldInvParts[1] : '?';
+        const predictedNum = `${prefix}/${oldSeq}/${romawi}/${y}`;
+
+        try {
+          const exportHistStr = localStorage.getItem('htg_export_history') || '';
+          const hasExported = (activePrimary?.notaId && exportHistStr.includes(activePrimary.notaId)) ||
+                              ((activePrimary as any)?.nota_id && exportHistStr.includes((activePrimary as any).nota_id)) ||
+                              (activePrimary?.invoiceNumber && exportHistStr.includes(activePrimary.invoiceNumber)) ||
+                              ((activePrimary as any)?.invoice_number && exportHistStr.includes((activePrimary as any).invoice_number));
+          if (hasExported) {
+            alert(`Nomor invoice akan berubah menjadi ${predictedNum}. Cetak ulang PDF-nya.`);
+          }
+        } catch (_) {}
+      }
+
+      const targetEditId = initialData?.id || (initialItems && initialItems[0]?.id);
+      if (allItemPayloads.length === 1) {
+        onSave(allItemPayloads[0], targetEditId);
+      } else {
+        onSave(allItemPayloads, targetEditId);
+      }
+    } else {
+      if (!finalDapurName.trim()) {
+        alert('Dapur tujuan wajib diisi!');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 2. NOTA_ID: Semua item dalam 1 batch form pesanan memiliki nota_id yang sama
+      const batchNotaId = `nota-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+      // WAJIB: Filter HANYA item valid (namaBarang tidak kosong & dapur tidak kosong)
+      const validItems = validItemRows
+        .filter((row) => (row.namaBarang || '').trim() !== '' && finalDapurName.trim() !== '')
+        .map((row) => {
+          const rowQty = Number(row.qty) || 0;
+          const rowPemasok = (row.pemasok || '').trim();
+          // Fallback logic: if row.pemasok is empty, inherit the top form's pemasok (finalPemasokName):
+          const effectivePemasokName = rowPemasok || finalPemasokName;
+          const matchedRowPemasok = masterPemasok.find(
+            (p) => p.nama.trim().toLowerCase() === effectivePemasokName.toLowerCase()
+          );
+          const effectivePemasokId = matchedRowPemasok?.id || (rowPemasok ? '' : finalPemasokId);
+
+          const itemObj = {
+            namaBarang: row.namaBarang.trim(),
+            item: row.namaBarang.trim(),
+            qty: rowQty,
+            qtyBeli: rowQty,
+            qty_beli: rowQty,
+            notaId: batchNotaId,
+            nota_id: batchNotaId,
+            satuan: row.satuan?.trim() || 'Kg',
+            hargaBeli: Math.max(0, Number(row.hargaBeli) || 0),
+            hargaJual: Math.max(0, Number(row.hargaJual) || 0),
+            cashback: Number(row.cashback) > 0 ? Number(row.cashback) : 0,
+            retur: Math.max(0, Number(row.retur) || 0),
+            toko: finalTokoName,
+            toko_id: finalTokoId,
+            tujuanDapur: finalDapurName,
+            dapur: finalDapurName,
+            dapur_id: finalDapurId,
+            pemasok: effectivePemasokName,
+            pemasok_id: effectivePemasokId,
+            status: calculatedStatus,
+            paymentStatus,
+            deliveryStatus,
+            tanggal,
+            catatan: catatan.trim(),
+          };
+
+          console.log('SUBMIT ITEM', itemObj);
+          return itemObj;
+        });
+
+      console.log('FINAL ITEMS TO INSERT', validItems);
+      console.log('PESANAN PAYLOAD', validItems);
+
+      if (validItems.length === 0) {
+        alert('Nama barang dan Dapur wajib diisi!');
+        setIsSubmitting(false);
+        return;
+      }
+
+      onSave(validItems);
+    }
+
+    setIsSubmitting(false);
+    onClose();
+  };
+
+  const isSuggestionOpen =
+    activeSuggestionRowId === currentItem.id && suggestions.length > 0;
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      <AnimatePresence>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 no-print font-sans">
+          {/* Backdrop click to dismiss */}
+          <div className="absolute inset-0" onClick={onClose} />
+
+          {/* Bottom Sheet Modal Container (Responsive Centered on Tablet/Desktop) */}
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            className="relative w-full max-w-lg sm:max-w-xl md:max-w-2xl tablet-landscape-modal bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border-t sm:border border-slate-200 dark:border-slate-800 overflow-hidden z-10 max-h-[92vh] sm:max-h-[88vh] flex flex-col transition-colors"
+          >
+            {/* Pull Tab Bar / Handle */}
+            <div className="w-full pt-3 pb-1 flex justify-center items-center cursor-grab bg-slate-50 dark:bg-slate-800/80 border-b border-slate-100 dark:border-slate-800">
+              <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-600 rounded-full" />
+            </div>
+
+            {/* Header Modal with Tanggal Pesanan */}
+            <div className="px-4 sm:px-5 py-3 sm:py-3.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 shrink-0 relative z-30">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center justify-between sm:justify-start gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-slate-900 dark:bg-indigo-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                      <Utensils className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-black text-slate-900 dark:text-slate-100 leading-tight">
+                        {initialData || (initialItems && initialItems.length > 0)
+                          ? itemRows.length > 1
+                            ? `Edit Pesanan (${itemRows.length} Item)`
+                            : 'Edit Pesanan'
+                          : 'Input Pesanan Baru'}
+                      </h2>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                        {initialData || (initialItems && initialItems.length > 0)
+                          ? 'Seluruh item dalam transaksi ini dapat diedit atau ditambah item baru'
+                          : 'Masukkan detail pesanan dapur'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Close button on mobile right */}
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    id="close-order-modal-btn-mobile"
+                    className="sm:hidden p-1.5 rounded-full text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors cursor-pointer"
+                    title="Tutup Modal"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* Tanggal Pesanan with Natural Format */}
+                  <div className="relative flex items-center bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:border-indigo-400 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 shadow-2xs transition-all cursor-pointer group flex-1 sm:flex-none">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 mr-2 shrink-0 group-hover:text-indigo-700" />
+                    <span className="truncate font-semibold text-slate-800 dark:text-slate-200 select-none">
+                      {tanggal ? formatTanggalWeb(tanggal, false) : 'Pilih Tanggal'}
+                    </span>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 ml-1.5 shrink-0" />
+                    <input
+                      type="date"
+                      required
+                      id="input-tanggal-order"
+                      value={tanggal}
+                      onChange={(e) => setTanggal(e.target.value)}
+                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                      title="Pilih tanggal pesanan"
+                    />
+                  </div>
+
+                  {/* Close button on desktop */}
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    id="close-order-modal-btn"
+                    className="hidden sm:flex p-1.5 rounded-full text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors cursor-pointer"
+                    title="Tutup Modal"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Scrollable Form Content */}
+            <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+              {/* Peringatan Perubahan Nomor Invoice (Aturan 12) */}
+              {invoiceChangeWarning && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700/80 rounded-2xl text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5 shadow-2xs">
+                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed">
+                    <p className="font-extrabold text-amber-950 dark:text-amber-100">
+                      Peringatan Perubahan Nomor Invoice:
+                    </p>
+                    <p className="mt-0.5">
+                      Nomor invoice akan berubah menjadi{' '}
+                      <span className="font-mono font-bold bg-amber-200/80 dark:bg-amber-900/80 px-1.5 py-0.5 rounded text-amber-950 dark:text-amber-100 border border-amber-300 dark:border-amber-700">
+                        {invoiceChangeWarning.newNumber}
+                      </span>
+                      . Cetak ulang PDF-nya.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* CARD 1: DETAIL PESANAN (Tetap Card Pertama, Rapih & Estimasi Margin) */}
+              <div className="bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                    DETAIL PESANAN
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {itemRows.length > 1 && (
+                      <span className="text-[10.5px] font-bold text-indigo-600 dark:text-indigo-400">
+                        Item #{activeItemIndex + 1} dari {itemRows.length}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      id="btn-header-tambah-item"
+                      onClick={addItemRow}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[11px] font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                      title={initialData ? 'Tambah item baru ke pesanan ini' : 'Tambah item barang'}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Tambah Item</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Multi item switch pills if > 1 */}
+                {itemRows.length > 1 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                    {itemRows.map((row, idx) => {
+                      const isActive = idx === activeItemIndex;
+                      return (
+                        <div
+                          key={row.id}
+                          onClick={() => setActiveItemIndex(idx)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs cursor-pointer transition-all shrink-0 ${
+                            isActive
+                              ? 'bg-indigo-600 text-white font-bold shadow-xs'
+                              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <span>#{idx + 1} {row.namaBarang || 'Tanpa Nama'}</span>
+                          {itemRows.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeItemRow(idx);
+                              }}
+                              className="p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
+                              title="Hapus Item"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Field 1: Nama Barang */}
+                <div className="relative">
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Nama Barang
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    id="input-nama-barang"
+                    value={currentItem.namaBarang}
+                    onChange={(e) => handleItemNameChange(e.target.value)}
+                    onKeyDown={handleItemKeyDown}
+                    onFocus={() => {
+                      if (currentItem.namaBarang.trim().length >= 1) {
+                        const results = getItemSuggestions(currentItem.namaBarang, existingNames, 8);
+                        setSuggestions(results);
+                        setActiveSuggestionRowId(currentItem.id);
+                      }
+                    }}
+                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+                  />
+
+                  {/* Autocomplete Popup */}
+                  {isSuggestionOpen && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-30 overflow-hidden py-1 divide-y divide-slate-100 dark:divide-slate-800 max-h-60 overflow-y-auto">
+                      <div className="sticky top-0 px-3 py-1 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider bg-slate-50 dark:bg-slate-800 flex items-center justify-between z-10">
+                        <span>Saran Barang</span>
+                        <span className="font-mono text-[8px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-1 rounded">↵ Enter</span>
+                      </div>
+                      {suggestions.map((sug, idx) => (
+                        <button
+                          key={sug}
+                          type="button"
+                          onClick={() => selectSuggestion(sug)}
+                          onMouseEnter={() => setSelectedSugIdx(idx)}
+                          className={`w-full px-3 py-1.5 text-left text-xs font-bold flex items-center justify-between transition-colors cursor-pointer ${
+                            idx === selectedSugIdx
+                              ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300'
+                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          <span>{sug}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Field 2: Qty, Retur & Satuan */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Qty Awal
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0.01"
+                      required
+                      id="input-qty-barang"
+                      value={currentItem.qty === 0 ? '' : currentItem.qty}
+                      onChange={(e) =>
+                        updateCurrentItem(
+                          'qty',
+                          e.target.value === '' ? 0 : parseFloat(e.target.value) || 0
+                        )
+                      }
+                      className="w-full px-2.5 sm:px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all text-center"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        Retur
+                      </label>
+                      {Number(currentItem.retur) > 0 && (
+                        <span className="text-[8.5px] font-black uppercase text-rose-600 bg-rose-50 dark:bg-rose-950/60 px-1 py-0.2 rounded border border-rose-200 dark:border-rose-800">
+                          RETUR {currentItem.retur}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      id="input-retur-barang"
+                      value={currentItem.retur === undefined || currentItem.retur === 0 ? '' : currentItem.retur}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                        updateCurrentItem('retur', Math.max(0, val));
+                      }}
+                      className={`w-full px-2.5 sm:px-3 py-2 bg-white dark:bg-slate-800 border rounded-xl text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 transition-all text-center ${
+                        Number(currentItem.retur) > (Number(currentItem.qty) || 0)
+                          ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-600 text-rose-600'
+                          : Number(currentItem.retur) > 0
+                          ? 'border-rose-300 dark:border-rose-700 bg-rose-50/30 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300'
+                          : 'border-slate-300 dark:border-slate-700 focus:ring-indigo-500/20 focus:border-indigo-600'
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Satuan
+                    </label>
+                    <SatuanAutocomplete
+                      id="select-satuan-barang"
+                      value={currentItem.satuan !== undefined ? currentItem.satuan : ''}
+                      onChange={(newSatuan) => updateCurrentItem('satuan', newSatuan)}
+                      masterSatuan={masterSatuan}
+                      onAddMasterSatuan={handleAddMasterSatuanInternal}
+                    />
+                  </div>
+                </div>
+
+                {/* Field 2.5: PEMASOK ITEM (Opsional per item) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1">
+                      <Truck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      <span>PEMASOK ITEM (OPSIONAL)</span>
+                    </label>
+                    {!currentItem.pemasok && pemasok && (
+                      <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">
+                        Ikut pemasok form atas ({pemasok})
+                      </span>
+                    )}
+                  </div>
+                  <PemasokAutocomplete
+                    id={`input-order-row-pemasok-${currentItem.id}`}
+                    value={currentItem.pemasok || ''}
+                    fallbackPemasok={pemasok}
+                    onChange={(val) => updateCurrentItem('pemasok', val)}
+                    masterPemasok={masterPemasok}
+                    pemasokList={availablePemasok}
+                  />
+                </div>
+
+                {/* Indikator Real-time Retur: jika retur > 0 */}
+                {Number(currentItem.retur) > 0 && (
+                  <div className="p-2.5 rounded-xl bg-rose-50/70 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="inline-block px-1.5 py-0.5 rounded text-[9.5px] font-black uppercase tracking-wider bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-200 border border-rose-300 dark:border-rose-700">
+                        RETUR {currentItem.retur}
+                      </span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        {currentItem.qty} {currentItem.satuan || 'Kg'} → <strong className="font-extrabold text-emerald-700 dark:text-emerald-400">Final {Math.max(0, (Number(currentItem.qty) || 0) - Number(currentItem.retur))} {currentItem.satuan || 'Kg'}</strong>
+                      </span>
+                    </div>
+                    {Number(currentItem.retur) > (Number(currentItem.qty) || 0) ? (
+                      <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                        Retur &gt; Qty!
+                      </span>
+                    ) : (
+                      <span className="text-[10.5px] font-mono font-bold text-slate-500 dark:text-slate-400">
+                        qty_final = {currentItem.qty} - {currentItem.retur}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Field 3: Harga Beli & Harga Jual */}
+                <div className="grid grid-cols-2 gap-3">
+                  <MoneyInput
+                    label="Harga Beli"
+                    required
+                    id="input-harga-beli"
+                    value={currentItem.hargaBeli}
+                    onChange={(val) => updateCurrentItem('hargaBeli', val)}
+                  />
+                  <MoneyInput
+                    label="Harga Jual"
+                    required
+                    id="input-harga-jual"
+                    value={currentItem.hargaJual}
+                    onChange={(val) => updateCurrentItem('hargaJual', val)}
+                  />
+                </div>
+
+                {/* Field 4: CASHBACK (Opsional per item barang) */}
+                <div className="space-y-1">
+                  <MoneyInput
+                    label="Cashback (Opsional)"
+                    id={`input-cashback-${currentItem.id}`}
+                    value={currentItem.cashback || 0}
+                    onChange={(val) => updateCurrentItem('cashback', val)}
+                  />
+                  {currentItem.hargaBeli > 0 && currentItem.hargaJual > 0 && (
+                    <div className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium px-0.5">
+                      Rentang valid: {formatIDR(currentItem.hargaBeli)} – {formatIDR(currentItem.hargaJual)}
+                    </div>
+                  )}
+                  {/* Inline real-time validation error */}
+                  {(() => {
+                    const cb = Number(currentItem.cashback) || 0;
+                    const hb = Number(currentItem.hargaBeli) || 0;
+                    const hj = Number(currentItem.hargaJual) || 0;
+                    if (cb > 0) {
+                      if (hb > 0 && cb < hb) {
+                        return (
+                          <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-[11px] font-semibold flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600 dark:text-rose-400" />
+                            <span>Cashback tidak boleh kurang dari Harga Beli ({formatIDR(hb)})</span>
+                          </div>
+                        );
+                      }
+                      if (hj > 0 && cb > hj) {
+                        return (
+                          <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-[11px] font-semibold flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600 dark:text-rose-400" />
+                            <span>Cashback tidak boleh lebih dari Harga Jual ({formatIDR(hj)})</span>
+                          </div>
+                        );
+                      }
+                    }
+                    return null;
+                  })()}
+                </div>
+
+                {/* Estimasi Laba Bersih & Ke Koperasi Live Preview */}
+                <ProfitPreview
+                  quantity={currentItem.qty}
+                  qtyBeli={currentItem.qtyBeli}
+                  retur={currentItem.retur}
+                  purchasePrice={currentItem.hargaBeli}
+                  sellingPrice={currentItem.hargaJual}
+                  cashback={currentItem.cashback}
+                />
+              </div>
+
+              {/* Tambah Item Barang Lainnya (Dashed border button & list preview) */}
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  id="btn-tambah-item-barang"
+                  onClick={addItemRow}
+                  className="w-full py-2.5 px-4 bg-white dark:bg-slate-800 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/40 hover:border-indigo-400 text-slate-700 dark:text-slate-300 hover:text-indigo-700 dark:hover:text-indigo-400 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-98"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{initialData ? '+ Tambah Item Baru ke Pesanan Ini' : '+ Tambah Item Barang'}</span>
+                </button>
+
+                {/* Multi item list preview when > 1 */}
+                {itemRows.length > 1 && (
+                  <div className="p-3 bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1.5">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        Daftar Barang ({itemRows.length} Item):
+                      </div>
+                      <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                        Pilih item untuk diedit
+                      </span>
+                    </div>
+                    <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                      {itemRows.map((r, idx) => {
+                        const rQty = Number(r.qty) || 0;
+                        const rQtyBeli = r.qtyBeli !== undefined && r.qtyBeli !== null ? Number(r.qtyBeli) : rQty;
+                        const rRetur = Math.max(0, Number(r.retur) || 0);
+                        const rFinal = Math.max(0, rQty - rRetur);
+                        const rBeliEfektif = Math.max(0, rQtyBeli - rRetur);
+                        return (
+                          <div
+                            key={r.id}
+                            onClick={() => setActiveItemIndex(idx)}
+                            className={`py-2 px-2.5 rounded-lg flex items-center justify-between text-xs cursor-pointer transition-colors ${
+                              idx === activeItemIndex
+                                ? 'bg-indigo-50 dark:bg-indigo-950/60 font-bold text-indigo-900 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60'
+                                : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              {itemRows.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeItemRow(idx);
+                                  }}
+                                  className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors shrink-0"
+                                  title="Hapus Item"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <div className="min-w-0">
+                                <span className="font-semibold block text-slate-900 dark:text-slate-100 truncate">
+                                  #{idx + 1} {r.namaBarang || 'Tanpa Nama'}
+                                </span>
+                                <div className="text-[10.5px] text-slate-500 dark:text-slate-400 font-normal flex items-center gap-1.5 flex-wrap">
+                                  {rRetur > 0 ? (
+                                    <>
+                                      <span className="line-through">{rQty} {r.satuan || 'Kg'}</span>
+                                      <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                                        Final {rFinal} {r.satuan || 'Kg'}
+                                      </span>
+                                      <span className="px-1 py-0.2 rounded text-[8.5px] font-black uppercase bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                                        RETUR {rRetur}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span>{rQty} {r.satuan || 'Kg'}</span>
+                                  )}
+                                  {Boolean(r.pemasok) && (
+                                    <span className="text-slate-400 dark:text-slate-500 text-[10px] truncate">
+                                      ({r.pemasok})
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0 pl-2">
+                              <span className="font-mono font-bold block text-slate-900 dark:text-slate-100">
+                                {formatIDR(rFinal * (r.hargaJual || 0))}
+                              </span>
+                              <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-mono block">
+                                Beli: {formatIDR(rBeliEfektif * (r.hargaBeli || 0))}
+                              </span>
+                              {Boolean(r.cashback && r.cashback > 0) && (
+                                <span className="text-[9.5px] font-bold text-amber-700 dark:text-amber-400 font-mono block">
+                                  CB: {formatIDR(r.cashback)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* CARD 2: TUJUAN PESANAN */}
+              <div className="bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 space-y-3">
+                <div className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Store className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                  <span>TUJUAN PESANAN</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Toko Autocomplete / Text Input */}
+                  <div className="relative">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        Toko <span className="text-rose-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuickAddType('toko');
+                          setQuickAddNama(toko.trim());
+                        }}
+                        className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                      >
+                        + Tambah Baru
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        id="input-order-toko"
+                        ref={tokoInputRef}
+                        value={toko}
+                        autoComplete="off"
+                        onFocus={() => setIsTokoOpen(true)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setToko(val);
+                          setIsTokoOpen(true);
+                          const matched = masterToko.find((t) => t.nama.trim().toLowerCase() === val.trim().toLowerCase() || String(t.id) === String(val));
+                          if (matched) {
+                            setTokoId(String(matched.id));
+                          } else {
+                            setTokoId('');
+                          }
+                        }}
+                        className="w-full pl-9 pr-8 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+                      />
+                      <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <button
+                        type="button"
+                        onClick={() => setIsTokoOpen(!isTokoOpen)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+                        title="Buka daftar toko"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {isTokoOpen && (
+                      <>
+                        <div 
+                          className="fixed inset-0 z-30" 
+                          onClick={() => setIsTokoOpen(false)} 
+                        />
+                        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-40 max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                          {filteredTokoSuggestions.length > 0 ? (
+                            filteredTokoSuggestions.map((t) => (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => {
+                                  setToko(t.nama);
+                                  setTokoId(String(t.id));
+                                  setIsTokoOpen(false);
+                                }}
+                                className="w-full text-left px-3.5 py-2.5 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors flex items-center justify-between group cursor-pointer"
+                              >
+                                <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-900 dark:group-hover:text-indigo-300">
+                                  {t.nama}
+                                </span>
+                                {toko.trim().toLowerCase() === t.nama.trim().toLowerCase() && (
+                                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-full">Terpilih</span>
+                                )}
+                              </button>
+                            ))
+                          ) : (
+                            <div className="p-3 text-center space-y-2">
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
+                                Belum ada toko "<span className="font-semibold text-slate-700 dark:text-slate-300">{toko}</span>"
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsTokoOpen(false);
+                                  setQuickAddType('toko');
+                                  setQuickAddNama(toko.trim());
+                                }}
+                                className="inline-block text-[11px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 cursor-pointer"
+                              >
+                                + Tambah "{toko}" ke Master
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Pemasok Autocomplete */}
+                  <div className="relative">
+                    <div className="flex items-center justify-between mb-1">
+                      <label 
+                        htmlFor="input-order-pemasok"
+                        className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5"
+                      >
+                        <span>Pemasok</span>
+                        {allItemsHavePemasok ? (
+                          <span className="text-[9.5px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 lowercase">
+                            (diatur per item)
+                          </span>
+                        ) : (
+                          <span className="text-[9.5px] font-normal text-slate-400 dark:text-slate-500 lowercase">
+                            (utama / default)
+                          </span>
+                        )}
+                      </label>
+                      {!allItemsHavePemasok && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setQuickAddType('pemasok');
+                            setQuickAddNama(pemasok.trim());
+                          }}
+                          className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                        >
+                          + Tambah Baru
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required={!allItemsHavePemasok}
+                        disabled={allItemsHavePemasok}
+                        id="input-order-pemasok"
+                        ref={pemasokInputRef}
+                        value={allItemsHavePemasok ? '' : pemasok}
+                        placeholder={
+                          allItemsHavePemasok
+                            ? 'Setiap item sudah memiliki pemasok masing-masing'
+                            : 'Pilih atau ketik nama pemasok...'
+                        }
+                        autoComplete="off"
+                        onFocus={() => {
+                          if (!allItemsHavePemasok) setIsPemasokOpen(true);
+                        }}
+                        onChange={(e) => {
+                          if (allItemsHavePemasok) return;
+                          const val = e.target.value;
+                          setPemasok(val);
+                          setIsPemasokOpen(true);
+                          const matched = masterPemasok.find((p) => p.nama.trim().toLowerCase() === val.trim().toLowerCase());
+                          if (matched) {
+                            setPemasokId(matched.id);
+                          } else {
+                            setPemasokId('');
+                          }
+                        }}
+                        className={`w-full pl-9 pr-8 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                          allItemsHavePemasok
+                            ? 'bg-slate-100/90 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed select-none placeholder:text-slate-400 dark:placeholder:text-slate-500'
+                            : 'bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600'
+                        }`}
+                      />
+                      <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      {!allItemsHavePemasok && (
+                        <button
+                          type="button"
+                          onClick={() => setIsPemasokOpen(!isPemasokOpen)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+                          title="Buka daftar pemasok"
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {!allItemsHavePemasok && isPemasokOpen && (
+                      <>
+                        <div 
+                          className="fixed inset-0 z-30" 
+                          onClick={() => setIsPemasokOpen(false)} 
+                        />
+                        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-40 max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                          {filteredPemasokSuggestions.length > 0 ? (
+                            filteredPemasokSuggestions.map((p) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => {
+                                  setPemasok(p.nama);
+                                  setPemasokId(p.id);
+                                  setIsPemasokOpen(false);
+                                }}
+                                className="w-full text-left px-3.5 py-2.5 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors flex items-center justify-between group cursor-pointer"
+                              >
+                                <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-900 dark:group-hover:text-indigo-300">
+                                  {p.nama}
+                                </span>
+                                {pemasok.trim().toLowerCase() === p.nama.trim().toLowerCase() && (
+                                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-full">Terpilih</span>
+                                )}
+                              </button>
+                            ))
+                          ) : (
+                            <div className="p-3 text-center space-y-2">
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
+                                Belum ada pemasok "<span className="font-semibold text-slate-700 dark:text-slate-300">{pemasok}</span>"
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsPemasokOpen(false);
+                                  setQuickAddType('pemasok');
+                                  setQuickAddNama(pemasok.trim());
+                                }}
+                                className="inline-block text-[11px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 cursor-pointer"
+                              >
+                                + Tambah "{pemasok}" ke Master
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Dapur Autocomplete */}
+                  <div className="relative">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        Dapur <span className="text-rose-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuickAddType('dapur');
+                          setQuickAddNama(tujuanDapur.trim());
+                        }}
+                        className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                      >
+                        + Tambah Baru
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        id="input-order-dapur"
+                        ref={dapurInputRef}
+                        value={tujuanDapur}
+                        autoComplete="off"
+                        onFocus={() => setIsDapurOpen(true)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTujuanDapur(val);
+                          setIsDapurOpen(true);
+                          const cleanVal = val.trim().toLowerCase().replace(/^dapur\s+/i, '');
+                          const matched = masterDapur.find(
+                            (d) => d.nama.trim().toLowerCase() === val.trim().toLowerCase() ||
+                                   d.nama.trim().toLowerCase().replace(/^dapur\s+/i, '') === cleanVal
+                          );
+                          if (matched) {
+                            setTujuanDapurId(matched.id);
+                          } else {
+                            setTujuanDapurId('');
+                          }
+                        }}
+                        className="w-full pl-9 pr-8 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+                      />
+                      <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <button
+                        type="button"
+                        onClick={() => setIsDapurOpen(!isDapurOpen)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+                        title="Buka daftar dapur"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {isDapurOpen && (
+                      <>
+                        <div 
+                          className="fixed inset-0 z-30" 
+                          onClick={() => setIsDapurOpen(false)} 
+                        />
+                        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-40 max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                          {filteredKitchenSuggestions.length > 0 ? (
+                            filteredKitchenSuggestions.map((d) => (
+                              <button
+                                key={d.id}
+                                type="button"
+                                onClick={() => {
+                                  setTujuanDapur(d.nama);
+                                  setTujuanDapurId(d.id);
+                                  setIsDapurOpen(false);
+                                }}
+                                className="w-full text-left px-3.5 py-2.5 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors flex items-center justify-between group cursor-pointer"
+                              >
+                                <div>
+                                  <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-900 dark:group-hover:text-indigo-300">
+                                    Dapur {d.nama.replace(/^dapur\s+/i, '')}
+                                  </span>
+                                  {d.alamat && (
+                                    <span className="text-[10.5px] text-slate-400 dark:text-slate-500 block mt-0.5">
+                                      {d.alamat}
+                                    </span>
+                                  )}
+                                </div>
+                                {(tujuanDapur.trim().toLowerCase() === d.nama.trim().toLowerCase() ||
+                                  tujuanDapur.trim().toLowerCase().replace(/^dapur\s+/i, '') === d.nama.trim().toLowerCase().replace(/^dapur\s+/i, '')) && (
+                                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-full">Terpilih</span>
+                                )}
+                              </button>
+                            ))
+                          ) : (
+                            <div className="p-3 text-center space-y-2">
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
+                                Belum ada dapur "<span className="font-semibold text-slate-700 dark:text-slate-300">{tujuanDapur}</span>"
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsDapurOpen(false);
+                                  setQuickAddType('dapur');
+                                  setQuickAddNama(tujuanDapur.trim().replace(/^dapur\s+/i, ''));
+                                }}
+                                className="inline-block text-[11px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 cursor-pointer"
+                              >
+                                + Tambah "{tujuanDapur}" ke Master
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 3: STATUS TRANSAKSI (Tetap Segmented Control Existing) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <StatusSegment<PaymentStatus>
+                  label="STATUS PEMBAYARAN"
+                  value={paymentStatus}
+                  onChange={setPaymentStatus}
+                  idPrefix="status-pembayaran"
+                  options={[
+                    { value: 'UNPAID', label: 'UNPAID', activeColor: 'bg-rose-600 text-white' },
+                    { value: 'PAID', label: 'PAID', activeColor: 'bg-emerald-600 text-white' },
+                  ]}
+                />
+
+                <StatusSegment<DeliveryStatus>
+                  label="STATUS PENGIRIMAN"
+                  value={deliveryStatus}
+                  onChange={setDeliveryStatus}
+                  idPrefix="status-pengiriman"
+                  options={[
+                    { value: 'PEMASOK', label: 'PEMASOK', activeColor: 'bg-orange-500 text-white' },
+                    { value: 'DRIVER', label: 'DRIVER', activeColor: 'bg-blue-600 text-white' },
+                    { value: 'DONE', label: 'DONE', activeColor: 'bg-emerald-600 text-white' },
+                  ]}
+                />
+              </div>
+
+              {/* CARD 4: TOTAL SUMMARY (Total Penjualan, Total Beli, Estimasi Profit, Ke Koperasi) */}
+              <OrderSummary
+                totalPenjualan={totalPenjualanSemua}
+                totalBeli={totalModalSemua}
+                totalLabaBersih={totalLabaBersihSemua}
+                totalKeKoperasi={totalKeKoperasiSemua}
+              />
+
+              {/* Catatan Opsional */}
+              <div className="pt-1">
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                  Catatan (Opsional)
+                </label>
+                <input
+                  type="text"
+                  id="input-catatan-order"
+                  value={catatan}
+                  onChange={(e) => setCatatan(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+                />
+              </div>
+            </form>
+
+            {/* BOTTOM ACTION BAR (100% PERSIS EXISTING: Batal | 🎙 | Simpan Pesanan) */}
+            <div className="px-5 py-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center gap-2">
+              {/* Tombol Batal */}
+              <button
+                type="button"
+                onClick={onClose}
+                id="btn-batal-order"
+                className="flex-1 py-2.5 px-4 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-center"
+              >
+                Batal
+              </button>
+
+              {/* Tombol Simpan Pesanan */}
+              <button
+                type="button"
+                id="btn-simpan-pesanan"
+                disabled={!isFormValid || isSubmitting}
+                onClick={() => handleSubmit()}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-indigo-900 hover:bg-indigo-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-black shadow-md shadow-indigo-900/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span>
+                  {isSubmitting
+                    ? 'Menyimpan...'
+                    : initialData || (initialItems && initialItems.length > 0)
+                    ? itemRows.length > 1
+                      ? `Simpan Perubahan (${itemRows.length} Item)`
+                      : 'Simpan Perubahan'
+                    : itemRows.length > 1
+                    ? `Simpan Pesanan (${itemRows.length} Item)`
+                    : 'Simpan Pesanan'}
+                </span>
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      </AnimatePresence>
+
+      {/* Quick Add Master Modal */}
+      {quickAddType && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl p-5 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 text-slate-800 dark:text-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+                  <Plus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">
+                    + Tambah {quickAddType === 'toko' ? 'Toko Baru' : quickAddType === 'pemasok' ? 'Pemasok Baru' : 'Dapur Baru'}
+                  </h3>
+                  <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium block">
+                    Tersimpan ke database &amp; langsung terpilih
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickAddType(null)}
+                className="p-1 rounded-full text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickAddSubmit} className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                  Nama {quickAddType === 'toko' ? 'Toko' : quickAddType === 'pemasok' ? 'Pemasok' : 'Dapur'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={quickAddNama}
+                  onChange={(e) => setQuickAddNama(e.target.value)}
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                />
+              </div>
+
+              {quickAddType === 'dapur' && (
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Alamat / Lokasi (Opsional)
+                  </label>
+                  <input
+                    type="text"
+                    value={quickAddAlamat}
+                    onChange={(e) => setQuickAddAlamat(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                  />
+                </div>
+              )}
+
+              {quickAddError && (
+                <div className="flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 font-bold">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{quickAddError}</span>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickAddType(null)}
+                  className="flex-1 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={quickAddLoading || !quickAddNama.trim()}
+                  className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+                >
+                  <span>{quickAddLoading ? 'Menyimpan...' : 'Simpan & Terapkan'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};

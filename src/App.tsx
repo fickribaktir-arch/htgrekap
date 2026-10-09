@@ -1,0 +1,730 @@
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useLocalStorage } from './hooks/useLocalStorage';
+import { 
+  OrderItem, 
+  Kitchen, 
+  Store as StoreType, 
+  InvoiceRecord, 
+  ExportHistoryItem, 
+  NoteItem, 
+  DashboardPeriod 
+} from './types';
+import { 
+  INITIAL_KITCHENS, 
+  INITIAL_STORES, 
+  INITIAL_PEMASOK 
+} from './constants/initialData';
+import { HeaderBanner } from './components/HeaderBanner';
+import { BottomNav, TabType } from './components/BottomNav';
+import { DashboardView } from './components/DashboardView';
+import { RekapView } from './components/RekapView';
+import { TransactionsView } from './components/TransactionsView';
+import { SupplierMonitoringView } from './components/SupplierMonitoringView';
+import { DriverDeliveryView } from './components/DriverDeliveryView';
+import { ConfirmModal } from './components/ConfirmModal';
+import { Toast, ToastMessage, ToastType } from './components/Toast';
+import { getTodayWIB, isOrderToday, isOrderThisWeek, getWeekRange } from './lib/formatters';
+import { motion, AnimatePresence } from 'motion/react';
+
+// Lazy-loaded modal components to significantly reduce initial bundle size and tablet memory usage
+const OrderModal = React.lazy(() => import('./components/OrderModal').then((m) => ({ default: m.OrderModal })));
+const NoteSheet = React.lazy(() => import('./components/NoteSheet').then((m) => ({ default: m.NoteSheet })));
+const FollowUpNoteModal = React.lazy(() => import('./components/FollowUpNoteModal').then((m) => ({ default: m.FollowUpNoteModal })));
+const InvoiceModal = React.lazy(() => import('./components/InvoiceModal').then((m) => ({ default: m.InvoiceModal })));
+const InvoiceFormModal = React.lazy(() => import('./components/InvoiceFormModal').then((m) => ({ default: m.InvoiceFormModal })));
+const ExportModal = React.lazy(() => import('./components/ExportModal').then((m) => ({ default: m.ExportModal })));
+const SettingsModal = React.lazy(() => import('./components/SettingsModal').then((m) => ({ default: m.SettingsModal })));
+const ExportHistorySheet = React.lazy(() => import('./components/ExportHistorySheet').then((m) => ({ default: m.ExportHistorySheet })));
+
+import { useConfirmDialog } from './hooks/useConfirmDialog';
+import { useMasterData } from './hooks/useMasterData';
+import { useDatabaseSync } from './hooks/useDatabaseSync';
+import { useDailyNotification } from './hooks/useDailyNotification';
+import { useNotesOperations } from './hooks/useNotesOperations';
+import { useInvoiceFlow } from './hooks/useInvoiceFlow';
+import { useOrderOperations } from './hooks/useOrderOperations';
+
+export default function App() {
+  // Pure in-memory orders and invoices state populated from Supabase as single source of truth
+  const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [kitchens, setKitchens] = useLocalStorage<Kitchen[]>('dapur_tracker_kitchens_v4', INITIAL_KITCHENS);
+  const [stores, setStores] = useLocalStorage<StoreType[]>('dapur_tracker_stores_v4', INITIAL_STORES);
+  const [pemasokList, setPemasokList] = useLocalStorage<string[]>('dapur_tracker_pemasok_v4', INITIAL_PEMASOK);
+  const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
+  const [exportHistory, setExportHistory] = useLocalStorage<ExportHistoryItem[]>('dapur_export_history_v1', []);
+  const [notes, setNotes] = useLocalStorage<NoteItem[]>('dapur_highlight_notes_v1', []);
+  const [dashboardPeriod, setDashboardPeriod] = useLocalStorage<DashboardPeriod>('dapur_dashboard_period_v3', 'all_time');
+
+  // Navigation State (Mendukung rute langsung /pengiriman untuk Driver)
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      if (path === '/pengiriman' || path.startsWith('/pengiriman') || window.location.hash === '#pengiriman') {
+        return 'pengiriman';
+      }
+    }
+    return 'dashboard';
+  });
+  const [selectedDate, setSelectedDate] = useState<string>(() => getTodayWIB());
+
+  // URL Sync untuk browser navigation & rute /pengiriman
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window !== 'undefined') {
+        const path = window.location.pathname.toLowerCase();
+        if (path === '/pengiriman' || path.startsWith('/pengiriman') || window.location.hash === '#pengiriman') {
+          setActiveTab('pengiriman');
+        } else if (path === '/' || path === '') {
+          setActiveTab('dashboard');
+        }
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleTabChange = useCallback((newTab: TabType) => {
+    setActiveTab(newTab);
+    if (typeof window !== 'undefined') {
+      const targetPath = newTab === 'pengiriman' ? '/pengiriman' : '/';
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState(null, '', targetPath);
+      }
+    }
+  }, []);
+
+  // Toast Notification State
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const showToast = useCallback((message: string, type: ToastType = 'success') => {
+    setToast({ id: `toast-${Date.now()}`, message, type });
+  }, []);
+
+  // Modal Visibility States
+  const [isNoteSheetOpen, setIsNoteSheetOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'kelola_data' | 'dapur' | 'toko' | 'pemasok' | 'template' | 'notifikasi' | 'install' | 'danger'>('kelola_data');
+
+
+  // Confirm Modal Hook
+  const { confirmState, setConfirmState } = useConfirmDialog();
+
+  // Master Data Hook
+  const {
+    masterToko,
+    masterPemasok,
+    masterDapur,
+    masterSatuan,
+    refreshMasterData,
+    handleAddMasterSatuan,
+  } = useMasterData({
+    setStores,
+    setPemasokList,
+    setKitchens,
+    showToast,
+  });
+
+  // Database Sync Hook
+  const {
+    isLoadingDb,
+    setIsLoadingDb,
+    isOnline,
+    setDbError,
+  } = useDatabaseSync({
+    activeTab,
+    setOrders,
+    setInvoices,
+    setNotes,
+    showToast,
+  });
+
+  // Smart Initializer: Saat pesanan dimuat dari Supabase, jika filter aktif menghasilkan 0 pesanan
+  // (misal 'hari_ini' tapi hari ini belum ada order baru), otomatis tampilkan 'all_time' agar seluruh data langsung tampil.
+  const hasCheckedInitialPeriod = useRef(false);
+  useEffect(() => {
+    if (orders.length > 0 && !hasCheckedInitialPeriod.current) {
+      hasCheckedInitialPeriod.current = true;
+      if (dashboardPeriod === 'hari_ini') {
+        const hasToday = orders.some((o) => isOrderToday(o, selectedDate));
+        if (!hasToday) {
+          setDashboardPeriod('all_time');
+        }
+      } else if (dashboardPeriod === 'mingguan') {
+        const hasWeek = orders.some((o) => isOrderThisWeek(o, getWeekRange(selectedDate)));
+        if (!hasWeek) {
+          setDashboardPeriod('all_time');
+        }
+      }
+    }
+  }, [orders, dashboardPeriod, selectedDate, setDashboardPeriod]);
+
+  // Daily Report Notification Hook
+  useDailyNotification(orders);
+
+  // Notes Operations Hook
+  const {
+    followUpNoteTarget,
+    setFollowUpNoteTarget,
+    isFollowUpModalOpen,
+    setIsFollowUpModalOpen,
+    handleOpenFollowUpNote,
+    handleCompleteFollowUpNote,
+    handleToggleNoteStatus,
+    handleDeleteNote,
+    handleDeleteSelectedNotes,
+    handleSaveNote,
+  } = useNotesOperations({
+    notes,
+    setNotes,
+    orders,
+    setOrders,
+    masterToko,
+    masterPemasok,
+    masterDapur,
+    selectedDate,
+    showToast,
+  });
+
+  // Invoice Flow Hook
+  const {
+    isExportingActive,
+    isExportHistoryOpen,
+    setIsExportHistoryOpen,
+    isInvoiceFormOpen,
+    setIsInvoiceFormOpen,
+    invoiceFormItems,
+    invoiceFormKitchen,
+    invoiceFormStore,
+    invoiceRecipientName,
+    invoiceRecipientAddress,
+    invoiceRecipientPhone,
+    invoiceBayar,
+    isInvoiceModalOpen,
+    setIsInvoiceModalOpen,
+    invoiceInitialFullPreview,
+    setInvoiceInitialFullPreview,
+    invoiceItems,
+    invoiceNumber,
+    invoiceTargetKitchen,
+    invoiceTargetStore,
+    handleDirect1ClickExportInvoicePdf,
+    handleStartInvoiceFlow,
+    handleConfirmInvoiceForm,
+    handleViewInvoice,
+    handleSaveInvoiceRecord,
+    handleTriggerBackgroundExport,
+    handleDeleteTransaction,
+    handleDeleteInvoice,
+  } = useInvoiceFlow({
+    invoices,
+    setInvoices,
+    setOrders,
+    exportHistory,
+    setExportHistory,
+    setIsLoadingDb,
+    setDbError,
+    setConfirmState,
+    showToast,
+  });
+
+  // Order Operations Hook
+  const {
+    isOrderModalOpen,
+    setIsOrderModalOpen,
+    editingOrder,
+    setEditingOrder,
+    editingBatchOrders,
+    setEditingBatchOrders,
+    prefilledKitchen,
+    setPrefilledKitchen,
+    handleToggleStatus,
+    handleUpdatePaymentStatus,
+    handleUpdateDeliveryStatus,
+    handleUpdateGroupPaymentStatus,
+    handleUpdateGroupDeliveryStatus,
+    handleDuplicateOrder,
+    handleToggleBatchStatus,
+    handleSaveOrder,
+    handleDeleteOrder,
+    handleDeleteBatchOrders,
+    handleDeleteKitchenOrders,
+    handleOpenEditOrder,
+    handleOpenAddModal,
+  } = useOrderOperations({
+    orders,
+    setOrders,
+    invoices,
+    setInvoices,
+    masterToko,
+    masterPemasok,
+    masterDapur,
+    setSelectedDate,
+    setIsLoadingDb,
+    setDbError,
+    setConfirmState,
+    showToast,
+  });
+
+  const confirmDeleteSelectedNotes = useCallback((noteIds: string[]) => {
+    if (noteIds.length === 0) return;
+    setConfirmState({
+      isOpen: true,
+      title: 'Hapus Follow Up terpilih?',
+      message: `${noteIds.length} Follow Up akan dihapus. Pesanan dan transaksi tidak ikut dihapus.`,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmState((previous) => previous ? { ...previous, isLoading: true } : previous);
+        try {
+          await handleDeleteSelectedNotes(noteIds);
+        } finally {
+          setConfirmState(null);
+        }
+      },
+    });
+  }, [handleDeleteSelectedNotes, setConfirmState]);
+
+  // Purge legacy cached orders and old dummy master data
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('dapur_tracker_orders_v4');
+        window.localStorage.removeItem('dapur_tracker_orders');
+        
+        const cachedPemasok = window.localStorage.getItem('dapur_tracker_pemasok_v4');
+        if (cachedPemasok && (cachedPemasok.includes('Pemasok 1') || cachedPemasok.includes('Pemasok 2'))) {
+          window.localStorage.removeItem('dapur_tracker_pemasok_v4');
+          setPemasokList(INITIAL_PEMASOK);
+        }
+        window.localStorage.removeItem('dapur_tracker_pemasok');
+
+        Object.keys(window.sessionStorage || {}).forEach((key) => {
+          if (key.includes('pesanan') || key.includes('order') || key.includes('pemasok')) {
+            window.sessionStorage.removeItem(key);
+          }
+        });
+      }
+    } catch {
+      // ignore storage access errors
+    }
+  }, [setPemasokList]);
+
+  // Initial master data load
+  useEffect(() => {
+    refreshMasterData();
+  }, [refreshMasterData]);
+
+  // Data Sanitization / Migration Effect
+  useEffect(() => {
+    if (stores.some((s) => s.nama.startsWith('Toko '))) {
+      setStores(INITIAL_STORES);
+    }
+    if (pemasokList.some((p) => p.startsWith('Pemasok ') || ['HTG', 'PROHE', 'LUWENG BOGA', 'ADIFRUITA'].includes(p))) {
+      setPemasokList(INITIAL_PEMASOK);
+    }
+
+    let needUpdate = false;
+    const updatedOrders = orders.map((o) => {
+      let toko = o.toko;
+      let pemasok = o.pemasok;
+      let itemChanged = false;
+
+      if (['HTG', 'PROHE', 'LUWENG BOGA', 'ADIFRUITA'].includes(o.pemasok)) {
+        toko = o.pemasok;
+        pemasok = INITIAL_PEMASOK[0];
+        itemChanged = true;
+      }
+      if (['Toko 1', 'Toko 2', 'Toko 3', 'Toko 4'].includes(o.toko)) {
+        toko = 'HTG';
+        itemChanged = true;
+      }
+      if (['Toko 1', 'Toko 2', 'Toko 3', 'Toko 4', 'Pemasok 1', 'Pemasok 2', 'Pemasok 3', 'Pemasok 4'].includes(o.pemasok)) {
+        pemasok = INITIAL_PEMASOK[0];
+        itemChanged = true;
+      }
+
+      if (itemChanged) {
+        needUpdate = true;
+        return { ...o, toko, pemasok };
+      }
+      return o;
+    });
+
+    if (needUpdate) {
+      setOrders(updatedOrders);
+    }
+
+    if (notes.some((n) => n.id === 'note-1' || n.id === 'note-2')) {
+      setNotes((prev) => prev.filter((n) => n.id !== 'note-1' && n.id !== 'note-2'));
+    }
+  }, []);
+
+  // Memoized unique item names from existing orders for auto-suggest
+  const existingItemNames = useMemo(
+    () => Array.from(new Set(orders.map((o) => o.namaBarang))),
+    [orders]
+  );
+
+  const handleDeleteAllData = useCallback(() => {
+    setOrders([]);
+    setInvoices([]);
+    setExportHistory([]);
+    setNotes([]);
+    showToast('Seluruh data pesanan, transaksi, dan catatan berhasil dihapus bersih', 'delete');
+  }, [setOrders, setInvoices, setExportHistory, setNotes, showToast]);
+
+  return (
+    <div className={`min-h-screen bg-[#eef2f6] dark:bg-[#090a0c] text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white transition-colors duration-200 ${activeTab === 'pengiriman' ? 'pb-8' : 'pb-36 sm:pb-24'}`}>
+      {/* Top Header Banner */}
+      {activeTab === 'dashboard' && (
+        <HeaderBanner
+          orders={orders}
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
+          notes={notes}
+          kitchens={kitchens}
+          period={dashboardPeriod}
+          onPeriodChange={setDashboardPeriod}
+          onToggleNoteStatus={handleToggleNoteStatus}
+          onFollowUpNote={handleOpenFollowUpNote}
+          onOpenNewNoteSheet={() => setIsNoteSheetOpen(true)}
+          onDeleteSelectedNotes={confirmDeleteSelectedNotes}
+          onOpenRekap={() => setActiveTab('rekap')}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenExportHistory={() => setIsExportHistoryOpen(true)}
+          isSyncingGas={isLoadingDb}
+          isExportingActive={isExportingActive}
+          exportHistoryCount={exportHistory.length}
+          pendingSyncCount={0}
+          isOnline={isOnline}
+        />
+      )}
+
+      {/* Main Content Body (Standard static div without drag gesture for butter-smooth tablet performance) */}
+      <main className={`flex-1 w-full max-w-7xl xl:max-w-[1536px] mx-auto px-3 sm:px-4 lg:px-4 xl:px-6 2xl:px-8 pt-2 ${activeTab === 'pengiriman' ? 'pb-8' : 'pb-36 sm:pb-32'}`}>
+        <div className="w-full">
+          <AnimatePresence mode="wait">
+            {activeTab === 'dashboard' ? (
+              <motion.div
+                key="dashboard"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <DashboardView
+                  orders={orders}
+                  invoices={invoices}
+                  isLoading={isLoadingDb}
+                  kitchens={kitchens}
+                  stores={stores}
+                  pemasokList={pemasokList}
+                  selectedDate={selectedDate}
+                  onDateChange={setSelectedDate}
+                  onToggleStatus={handleToggleStatus}
+                  onUpdatePaymentStatus={handleUpdatePaymentStatus}
+                  onUpdateDeliveryStatus={handleUpdateDeliveryStatus}
+                  onUpdateGroupPaymentStatus={handleUpdateGroupPaymentStatus}
+                  onUpdateGroupDeliveryStatus={handleUpdateGroupDeliveryStatus}
+                  onEditOrder={handleOpenEditOrder}
+                  onDuplicateOrder={handleDuplicateOrder}
+                  onDeleteOrder={handleDeleteOrder}
+                  onDeleteBatchOrders={handleDeleteBatchOrders}
+                  onOpenInvoiceModal={handleStartInvoiceFlow}
+                  onExportInvoicePdf={handleDirect1ClickExportInvoicePdf}
+                  onViewInvoice={handleViewInvoice}
+                  onOpenExportModal={() => setIsExportOpen(true)}
+                  onOpenAddModal={() => handleOpenAddModal()}
+                />
+              </motion.div>
+            ) : activeTab === 'rekap' ? (
+              <motion.div
+                key="rekap"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+              >
+                <RekapView
+                  orders={orders}
+                  stores={stores}
+                  kitchens={kitchens}
+                  invoices={invoices}
+                  selectedDate={selectedDate}
+                  period={dashboardPeriod}
+                  onPeriodChange={setDashboardPeriod}
+                  onOpenSettings={(tab) => {
+                    if (tab) setSettingsInitialTab(tab);
+                    setIsSettingsOpen(true);
+                  }}
+                  onOpenExportHistory={() => setIsExportHistoryOpen(true)}
+                  isExportingActive={isExportingActive}
+                  exportHistoryCount={exportHistory.length}
+                  isOnline={isOnline}
+                />
+              </motion.div>
+            ) : activeTab === 'transaksi' ? (
+              <motion.div
+                key="transaksi"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <TransactionsView
+                  invoices={invoices}
+                  orders={orders}
+                  isLoading={isLoadingDb}
+                  kitchens={kitchens}
+                  stores={stores}
+                  selectedDate={selectedDate}
+                  onDateChange={setSelectedDate}
+                  onToggleStatus={handleToggleStatus}
+                  onUpdatePaymentStatus={handleUpdatePaymentStatus}
+                  onUpdateDeliveryStatus={handleUpdateDeliveryStatus}
+                  onUpdateGroupPaymentStatus={handleUpdateGroupPaymentStatus}
+                  onUpdateGroupDeliveryStatus={handleUpdateGroupDeliveryStatus}
+                  onToggleBatchStatus={handleToggleBatchStatus}
+                  onEditOrder={handleOpenEditOrder}
+                  onDuplicateOrder={handleDuplicateOrder}
+                  onDeleteOrder={handleDeleteOrder}
+                  onDeleteKitchenOrders={handleDeleteKitchenOrders}
+                  onOpenInvoiceModal={handleStartInvoiceFlow}
+                  onExportInvoicePdf={handleDirect1ClickExportInvoicePdf}
+                  onViewInvoice={handleViewInvoice}
+                  onDeleteInvoice={handleDeleteInvoice}
+                  onDeleteTransaction={handleDeleteTransaction}
+                  onOpenAddModal={handleOpenAddModal}
+                  onOpenExportHistory={() => setIsExportHistoryOpen(true)}
+                  isExportingActive={isExportingActive}
+                  exportHistoryCount={exportHistory.length}
+                  isOnline={isOnline}
+                />
+              </motion.div>
+            ) : activeTab === 'pengiriman' ? (
+              <motion.div
+                key="pengiriman"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+              >
+                <DriverDeliveryView
+                  orders={orders}
+                  selectedDate={selectedDate}
+                  onDateChange={setSelectedDate}
+                  onUpdateDeliveryStatus={handleUpdateDeliveryStatus}
+                  onUpdateGroupDeliveryStatus={handleUpdateGroupDeliveryStatus}
+                  kitchens={kitchens}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="monitoring_pemasok"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+              >
+                <SupplierMonitoringView
+                  orders={orders}
+                  stores={stores}
+                  pemasokList={pemasokList}
+                  onUpdatePaymentStatus={handleUpdatePaymentStatus}
+                  onUpdateGroupPaymentStatus={handleUpdateGroupPaymentStatus}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </main>
+
+      {/* Bottom Navigation Bar (Hanya tampil di halaman utama, disembunyikan di halaman khusus driver /pengiriman) */}
+      {activeTab !== 'pengiriman' && (
+        <BottomNav activeTab={activeTab} onChangeTab={handleTabChange} onOpenManual={() => handleOpenAddModal()} />
+      )}
+
+      {/* Lazy Suspense Boundary for All Modals to prevent massive upfront bundle loading */}
+      <React.Suspense fallback={null}>
+      {/* Toast Notification */}
+      <Toast toast={toast} onClose={() => setToast(null)} />
+
+      {/* Confirm Delete Modal */}
+      {confirmState && (
+        <ConfirmModal
+          isOpen={confirmState.isOpen}
+          title={confirmState.title}
+          message={confirmState.message}
+          isLoading={confirmState.isLoading}
+          onConfirm={confirmState.onConfirm}
+          onCancel={() => {
+            if (!confirmState.isLoading) {
+              setConfirmState(null);
+            }
+          }}
+        />
+      )}
+
+      {/* 0. Highlight Note Tab Bar Sheet Form */}
+      <NoteSheet
+        isOpen={isNoteSheetOpen}
+        onClose={() => {
+          setIsNoteSheetOpen(false);
+        }}
+        onSave={handleSaveNote}
+        kitchens={kitchens}
+        stores={stores}
+        pemasokList={pemasokList}
+        masterToko={masterToko}
+        masterPemasok={masterPemasok}
+        masterDapur={masterDapur}
+        masterSatuan={masterSatuan}
+        onAddMasterSatuan={handleAddMasterSatuan}
+        onRefreshMaster={refreshMasterData}
+        existingItemNames={existingItemNames}
+      />
+
+      {/* 0.1 Follow Up Note Modal */}
+      <FollowUpNoteModal
+        isOpen={isFollowUpModalOpen}
+        note={followUpNoteTarget}
+        onClose={() => {
+          setIsFollowUpModalOpen(false);
+          setFollowUpNoteTarget(null);
+        }}
+        onDone={handleCompleteFollowUpNote}
+        onDelete={async (noteId) => {
+          await handleDeleteNote(noteId);
+          setFollowUpNoteTarget(null);
+          setIsFollowUpModalOpen(false);
+        }}
+        kitchens={kitchens}
+        stores={stores}
+        pemasokList={pemasokList}
+        masterToko={masterToko}
+        masterPemasok={masterPemasok}
+        masterDapur={masterDapur}
+        masterSatuan={masterSatuan}
+        onAddMasterSatuan={handleAddMasterSatuan}
+        onRefreshMaster={refreshMasterData}
+        existingOrders={orders}
+        selectedDate={selectedDate}
+      />
+
+      {/* 1. Add / Edit Order Tab Bar Sheet */}
+      <OrderModal
+        isOpen={isOrderModalOpen}
+        onClose={() => {
+          setIsOrderModalOpen(false);
+          setEditingOrder(null);
+          setEditingBatchOrders([]);
+          setPrefilledKitchen(undefined);
+        }}
+        onSave={(orderData, editId) => {
+          const rawItems = Array.isArray(orderData) ? orderData : [orderData];
+          const validItems = rawItems.filter((item: any) => {
+            const nama = ((item.namaBarang || item.item || item.nama_barang || '') as string).trim();
+            const dapur = ((item.tujuanDapur || item.dapur || item.tujuan_dapur || '') as string).trim();
+            return nama.length > 0 && dapur.length > 0;
+          });
+          console.log('FINAL ITEMS TO INSERT', validItems);
+          if (validItems.length === 0) {
+            console.warn('[App:onSave] Diabaikan: Tidak ada item valid (item & dapur wajib ada).');
+            return;
+          }
+          handleSaveOrder(Array.isArray(orderData) ? validItems : validItems[0], editId);
+        }}
+        initialData={editingOrder}
+        initialItems={editingBatchOrders}
+        prefilledKitchen={prefilledKitchen}
+        kitchens={kitchens}
+        stores={stores}
+        pemasokList={pemasokList}
+        masterToko={masterToko}
+        masterPemasok={masterPemasok}
+        masterDapur={masterDapur}
+        masterSatuan={masterSatuan}
+        onAddMasterSatuan={handleAddMasterSatuan}
+        onRefreshMaster={refreshMasterData}
+        selectedDate={selectedDate}
+        existingOrders={orders}
+        exportHistory={exportHistory}
+      />
+
+      {/* 2. Invoice Form (Step 1 Confirmation Bottom Sheet) */}
+      <InvoiceFormModal
+        isOpen={isInvoiceFormOpen}
+        onClose={() => setIsInvoiceFormOpen(false)}
+        items={invoiceFormItems}
+        kitchenName={invoiceFormKitchen}
+        storeName={invoiceFormStore}
+        kitchens={kitchens}
+        onConfirm={handleConfirmInvoiceForm}
+      />
+
+      {/* 3. Invoice Preview & Export (Step 2 Bottom Sheet) */}
+      <InvoiceModal
+        isOpen={isInvoiceModalOpen}
+        onClose={() => {
+          setIsInvoiceModalOpen(false);
+          setInvoiceInitialFullPreview(false);
+        }}
+        invoiceNumber={invoiceNumber}
+        items={invoiceItems}
+        tujuanDapur={invoiceTargetKitchen}
+        toko={invoiceTargetStore}
+        recipientName={invoiceRecipientName}
+        recipientAddress={invoiceRecipientAddress}
+        recipientPhone={invoiceRecipientPhone}
+        bayarAmount={invoiceBayar}
+        initialFullPreview={invoiceInitialFullPreview}
+        onTriggerBackgroundExport={handleTriggerBackgroundExport}
+        onSaveInvoiceRecord={handleSaveInvoiceRecord}
+      />
+
+      {/* 4. Export Spreadsheet (.xlsx & .csv) Bottom Sheet */}
+      <ExportModal
+        isOpen={isExportOpen}
+        onClose={() => setIsExportOpen(false)}
+        orders={orders}
+        selectedDate={selectedDate}
+        onExportSuccess={(fileName) => {
+          showToast(`Laporan ${fileName} berhasil diunduh!`, 'success');
+        }}
+      />
+
+      {/* 6. Export History & Download Bottom Sheet */}
+      <ExportHistorySheet
+        isOpen={isExportHistoryOpen}
+        onClose={() => setIsExportHistoryOpen(false)}
+        history={exportHistory}
+        onDeleteHistoryItem={(id) => {
+          setExportHistory((prev) => prev.filter((item) => item.id !== id));
+          showToast('Riwayat item dihapus', 'delete');
+        }}
+        onClearHistory={() => {
+          setExportHistory([]);
+          showToast('Riwayat export berhasil dibersihkan', 'success');
+        }}
+        isExportingActive={isExportingActive}
+      />
+
+      {/* 7. Settings Bottom Sheet */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        initialTab={settingsInitialTab}
+        kitchens={kitchens}
+        onUpdateKitchens={setKitchens}
+        stores={stores}
+        onUpdateStores={setStores}
+        pemasokList={pemasokList}
+        onUpdatePemasok={setPemasokList}
+        orders={orders}
+        onUpdateOrders={setOrders}
+        onDeleteAllData={handleDeleteAllData}
+        onRefreshData={refreshMasterData}
+      />
+      </React.Suspense>
+    </div>
+  );
+}
