@@ -198,7 +198,7 @@ async function startServer() {
   // =============================================================================
   // AUTH KEY & PIN ENDPOINTS (PIN KEAMANAN SUPABASE - TANPA PLAIN TEXT DI CLIENT)
   // =============================================================================
-  app.get('/api/auth/status', async (req, res) => {
+  const handleAuthStatus = async (req: express.Request, res: express.Response) => {
     try {
       const status = await getAuthPinStatus();
       return res.json(status);
@@ -210,11 +210,11 @@ async function startServer() {
         message: err?.message || 'Gagal memeriksa status PIN',
       });
     }
-  });
+  };
 
-  app.post('/api/auth/verify-pin', async (req, res) => {
+  const handleVerifyPin = async (req: express.Request, res: express.Response) => {
     try {
-      const pin = req.body?.pin;
+      const pin = req.body?.pin || req.query?.pin;
       const result = await verifyPinInDb(pin);
       if (result.success) {
         return res.json(result);
@@ -227,6 +227,15 @@ async function startServer() {
         message: err?.message || 'Error server verifikasi PIN',
       });
     }
+  };
+
+  app.get('/api/auth/status', handleAuthStatus);
+  app.get('/api/auth', handleAuthStatus);
+  app.post('/api/auth/verify-pin', handleVerifyPin);
+  app.post('/api/auth', handleVerifyPin);
+  app.all('/api/supabase/auth', (req, res) => {
+    if (req.method === 'POST') return handleVerifyPin(req, res);
+    return handleAuthStatus(req, res);
   });
 
   // 2. Orders (pesanan) Endpoints
