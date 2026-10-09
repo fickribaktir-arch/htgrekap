@@ -30,9 +30,10 @@ import {
   Square,
   CheckSquare2,
   Clock,
-  TrendingUp
+  TrendingUp,
+  Banknote
 } from 'lucide-react';
-import { OrderItem, NoteItem, Kitchen, DashboardPeriod } from '../types';
+import { OrderItem, NoteItem, Kitchen, DashboardPeriod, OperationalExpense } from '../types';
 import { 
   parseIndonesianNumber, 
   formatRupiah, 
@@ -56,11 +57,13 @@ interface HeaderBannerProps {
   kitchens: Kitchen[];
   period?: DashboardPeriod;
   onPeriodChange?: (period: DashboardPeriod) => void;
+  operationalExpenses?: OperationalExpense[];
   onToggleNoteStatus: (noteId: string) => void;
   onFollowUpNote?: (note: NoteItem) => void;
   onOpenNewNoteSheet: () => void;
   onDeleteSelectedNotes: (noteIds: string[]) => void;
   onOpenRekap: () => void;
+  onOpenExpenses?: () => void;
   onOpenSettings: () => void;
   onOpenExportHistory: () => void;
   onOpenSyncSheet?: () => void;
@@ -80,11 +83,13 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
   kitchens = [],
   period: periodProp,
   onPeriodChange,
+  operationalExpenses = [],
   onToggleNoteStatus,
   onFollowUpNote,
   onOpenNewNoteSheet,
   onDeleteSelectedNotes,
   onOpenRekap,
+  onOpenExpenses,
   onOpenSettings,
   onOpenExportHistory,
   onOpenSyncSheet,
@@ -293,8 +298,8 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
     return '';
   }, [activePeriod, selectedDate, weekRange, customRange]);
 
-  // Dynamic memoized calculations for operational metrics: Penjualan, Beli, Cashback, Estimasi Laba, Total Pesanan, Delivery (Selesai), & Pending
-  const { totalBatches, deliveredBatches, pendingBatches, paidBatches, unpaidBatches, totalLabaBersih, totalPengeluaran, totalPenjualan, totalCashback } = useMemo(() => {
+  // Dynamic memoized calculations for operational metrics: Penjualan, Beli, Cashback, Biaya Operasional, Estimasi Laba, Total Pesanan, Delivery (Selesai), & Pending
+  const { totalBatches, deliveredBatches, pendingBatches, paidBatches, unpaidBatches, totalLabaBersih, totalPengeluaran, totalPenjualan, totalCashback, biayaOperasional } = useMemo(() => {
     let labaBersih = 0;
     let pengeluaran = 0;
     let penjualan = 0;
@@ -371,6 +376,32 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
       }
     });
 
+    // Biaya Operasional Sesuai Periode Header
+    const filteredExpenses = (operationalExpenses || []).filter((item) => {
+      const itemDate = item.tanggal || (item.createdAt ? item.createdAt.split('T')[0] : '');
+      if (!itemDate) return false;
+      if (activePeriod === 'all_time') return true;
+      if (activePeriod === 'custom') {
+        if (customRange.startDate && itemDate < customRange.startDate) return false;
+        if (customRange.endDate && itemDate > customRange.endDate) return false;
+        return true;
+      }
+      if (activePeriod === 'hari_ini') {
+        return itemDate === selectedDate;
+      }
+      if (activePeriod === 'mingguan') {
+        return itemDate >= weekRange.start && itemDate <= weekRange.end;
+      }
+      if (activePeriod === 'bulan_ini') {
+        return itemDate.slice(0, 7) === selectedDate.slice(0, 7);
+      }
+      return true;
+    });
+
+    const biayaOperasional = filteredExpenses.reduce((sum, item) => sum + (Number(item.nominal) || 0), 0);
+    // Laba Bersih = Total Penjualan - Pengeluaran (Beli) - Total Cashback - Biaya Operasional
+    const finalLabaBersih = labaBersih - biayaOperasional;
+
     return {
       totalBatches: batchMap.size,
       deliveredBatches: deliveredCount,
@@ -379,10 +410,11 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
       unpaidBatches: unpaidCount,
       totalPenjualan: penjualan,
       totalCashback: cashback,
-      totalLabaBersih: labaBersih,
+      totalLabaBersih: finalLabaBersih,
       totalPengeluaran: pengeluaran,
+      biayaOperasional,
     };
-  }, [filteredOrders]);
+  }, [filteredOrders, operationalExpenses, activePeriod, customRange, selectedDate, weekRange]);
 
   return (
     <header className="no-print px-3 sm:px-6 lg:px-8 pt-3 pb-2 max-w-7xl xl:max-w-[1536px] mx-auto w-full font-sans">
@@ -739,8 +771,8 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
 
         {/* SUB-ROW: Status Operasional & Follow Up Notes */}
         <div className="grid grid-cols-1 gap-2.5">
-          {/* Left: Status Operasional (Penjualan, Cashback, Pengeluaran Beli, Estimasi Laba, Status Pemesanan) */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          {/* Left: Status Operasional (Total Penjualan - Pengeluaran Beli - Total Cashback - Biaya Operasional - Laba Bersih - Status Pemesanan) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
             {/* 1. Box Total Penjualan (Omset) */}
             <div className="bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/90 dark:border-indigo-800/60 rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-2xs transition-colors duration-200">
               <div className="flex items-center gap-2 min-w-0">
@@ -758,24 +790,7 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
               </div>
             </div>
 
-            {/* 2. Box Total Cashback (Koperasi) */}
-            <div className="bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-2xs transition-colors duration-200">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-xl bg-amber-600 text-white flex items-center justify-center border border-amber-600 shadow-xs flex-shrink-0">
-                  <Tag className="w-3.5 h-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 block truncate">
-                    Total Cashback
-                  </span>
-                  <span className="text-xs sm:text-sm font-black font-nominal text-amber-950 dark:text-amber-100 leading-none truncate block">
-                    <AnimatedCounter value={totalCashback} format="rupiah" />
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Box Pengeluaran PO (Harga Beli ke Pemasok) */}
+            {/* 2. Box Pengeluaran PO (Harga Beli ke Pemasok) */}
             <div className="bg-slate-50/90 dark:bg-slate-800/70 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-2xs transition-colors duration-200">
               <div className="flex items-center gap-2 min-w-0">
                 <div className="w-7 h-7 rounded-xl bg-slate-600 dark:bg-slate-500 text-white flex items-center justify-center border border-slate-600 dark:border-slate-500 shadow-xs flex-shrink-0">
@@ -792,7 +807,49 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
               </div>
             </div>
 
-            {/* 4. Box Estimasi Laba Bersih */}
+            {/* 3. Box Total Cashback (Koperasi) */}
+            <div className="bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-2xs transition-colors duration-200">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-xl bg-amber-600 text-white flex items-center justify-center border border-amber-600 shadow-xs flex-shrink-0">
+                  <Tag className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 block truncate">
+                    Total Cashback
+                  </span>
+                  <span className="text-xs sm:text-sm font-black font-nominal text-amber-950 dark:text-amber-100 leading-none truncate block">
+                    <AnimatedCounter value={totalCashback} format="rupiah" />
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Box Biaya Operasional (BBM, Gaji, Listrik, dll) */}
+            <button 
+              type="button" 
+              onClick={onOpenExpenses} 
+              aria-label="Buka Pengeluaran Operasional" 
+              title={onOpenExpenses ? "Klik untuk melihat rincian Pengeluaran Operasional" : "Biaya Operasional"} 
+              className={`w-full bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200/90 dark:border-rose-800/60 rounded-2xl p-2 sm:p-2.5 flex items-center justify-between text-left shadow-2xs transition-colors duration-200 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 ${
+                onOpenExpenses ? 'cursor-pointer' : ''
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-xl bg-rose-600 text-white flex items-center justify-center border border-rose-600 shadow-xs flex-shrink-0">
+                  <Banknote className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 block truncate">
+                    Biaya Operasional
+                  </span>
+                  <span className="text-xs sm:text-sm font-black font-nominal text-rose-950 dark:text-rose-100 leading-none truncate block">
+                    <AnimatedCounter value={biayaOperasional} format="rupiah" />
+                  </span>
+                </div>
+              </div>
+            </button>
+
+            {/* 5. Box Estimasi Laba Bersih */}
             <button type="button" onClick={onOpenRekap} aria-label="Buka Rekap dari Laba Bersih" title="Buka Rekap" className="w-full bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/90 dark:border-emerald-800/60 rounded-2xl p-2 sm:p-2.5 flex items-center justify-between text-left shadow-2xs transition-colors duration-200 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 cursor-pointer">
               <div className="flex items-center gap-2 min-w-0">
                 <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center border border-emerald-600 shadow-xs flex-shrink-0">
@@ -802,15 +859,17 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
                   <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block truncate">
                     Laba Bersih
                   </span>
-                  <span className="text-xs sm:text-sm font-black font-nominal text-emerald-950 dark:text-emerald-100 leading-none truncate block">
+                  <span className={`text-xs sm:text-sm font-black font-nominal leading-none truncate block ${
+                    totalLabaBersih >= 0 ? 'text-emerald-950 dark:text-emerald-100' : 'text-rose-700 dark:text-rose-300'
+                  }`}>
                     <AnimatedCounter value={totalLabaBersih} format="rupiah" />
                   </span>
                 </div>
               </div>
             </button>
 
-            {/* 5. Satu Blok Status Pemesanan Terpadu (col-span-2 sm:col-span-2 lg:col-span-1) */}
-            <div className="col-span-2 sm:col-span-2 lg:col-span-1 bg-white dark:bg-slate-800/90 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl p-2 sm:p-2.5 shadow-2xs transition-colors duration-200 flex flex-col justify-between">
+            {/* 6. Satu Blok Status Pemesanan Terpadu (col-span-2 sm:col-span-1 lg:col-span-1) */}
+            <div className="col-span-2 sm:col-span-1 lg:col-span-1 bg-white dark:bg-slate-800/90 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl p-2 sm:p-2.5 shadow-2xs transition-colors duration-200 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-slate-100 dark:border-slate-700/60">
                 <div className="flex items-center gap-1.5">
                   <ShoppingBag className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />

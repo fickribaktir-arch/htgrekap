@@ -99,10 +99,22 @@ export interface FallbackNote {
   updated_at: string;
 }
 
+export interface FallbackOperationalExpense {
+  id: string;
+  tanggal: string;
+  kategori: string;
+  nominal: number;
+  metode_pembayaran: string;
+  keterangan: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface LocalDatabase {
   pesanan: FallbackOrder[];
   transaksi: FallbackTransaction[];
   notes: FallbackNote[];
+  pengeluaran_operasional?: FallbackOperationalExpense[];
   toko: FallbackMasterToko[];
   pemasok: FallbackMasterPemasok[];
   dapur: FallbackMasterDapur[];
@@ -215,6 +227,7 @@ export function loadDb(): LocalDatabase {
       if (!inMemoryDb!.pesanan) inMemoryDb!.pesanan = [];
       if (!inMemoryDb!.transaksi) inMemoryDb!.transaksi = [];
       if (!inMemoryDb!.notes) inMemoryDb!.notes = [];
+      if (!inMemoryDb!.pengeluaran_operasional) inMemoryDb!.pengeluaran_operasional = [];
       if (!inMemoryDb!.toko || inMemoryDb!.toko.length === 0) inMemoryDb!.toko = [...INITIAL_TOKO_SEED];
       if (!inMemoryDb!.pemasok || inMemoryDb!.pemasok.length === 0) inMemoryDb!.pemasok = [...INITIAL_PEMASOK_SEED];
       if (!inMemoryDb!.dapur || inMemoryDb!.dapur.length === 0) inMemoryDb!.dapur = [...INITIAL_DAPUR_SEED];
@@ -229,6 +242,7 @@ export function loadDb(): LocalDatabase {
     pesanan: [],
     transaksi: [],
     notes: [],
+    pengeluaran_operasional: [],
     toko: [...INITIAL_TOKO_SEED],
     pemasok: [...INITIAL_PEMASOK_SEED],
     dapur: [...INITIAL_DAPUR_SEED],
@@ -1139,3 +1153,74 @@ export function checkMasterUsage(
 
   return { isUsed, orderCount, transaksiCount, message };
 }
+
+// =============================================================================
+// OPERATIONAL EXPENSES (pengeluaran_operasional) LOCAL FALLBACK CRUD
+// =============================================================================
+export function getLocalOperationalExpenses(): FallbackOperationalExpense[] {
+  const db = loadDb();
+  if (!db.pengeluaran_operasional) db.pengeluaran_operasional = [];
+  return [...db.pengeluaran_operasional].sort((a, b) => {
+    // Urutkan tanggal terbaru ke terlama
+    const diff = (b.tanggal || '').localeCompare(a.tanggal || '');
+    if (diff !== 0) return diff;
+    return (b.created_at || '').localeCompare(a.created_at || '');
+  });
+}
+
+export function createLocalOperationalExpense(payload: Partial<FallbackOperationalExpense>): FallbackOperationalExpense {
+  const db = loadDb();
+  if (!db.pengeluaran_operasional) db.pengeluaran_operasional = [];
+
+  const now = new Date().toISOString();
+  const id = payload.id || `exp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const item: FallbackOperationalExpense = {
+    id,
+    tanggal: payload.tanggal || now.slice(0, 10),
+    kategori: payload.kategori || 'Lainnya',
+    nominal: Math.max(0, Number(payload.nominal) || 0),
+    metode_pembayaran: payload.metode_pembayaran || 'Tunai',
+    keterangan: payload.keterangan || '',
+    created_at: payload.created_at || now,
+    updated_at: now,
+  };
+
+  db.pengeluaran_operasional.unshift(item);
+  saveDb();
+  return item;
+}
+
+export function updateLocalOperationalExpense(id: string, updates: Partial<FallbackOperationalExpense>): FallbackOperationalExpense {
+  const db = loadDb();
+  if (!db.pengeluaran_operasional) db.pengeluaran_operasional = [];
+
+  const index = db.pengeluaran_operasional.findIndex((e) => e.id === id);
+  if (index === -1) {
+    throw new Error(`Pengeluaran operasional dengan ID "${id}" tidak ditemukan.`);
+  }
+
+  const current = db.pengeluaran_operasional[index];
+  const updated: FallbackOperationalExpense = {
+    ...current,
+    ...updates,
+    nominal: updates.nominal !== undefined ? Math.max(0, Number(updates.nominal) || 0) : current.nominal,
+    updated_at: new Date().toISOString(),
+  };
+
+  db.pengeluaran_operasional[index] = updated;
+  saveDb();
+  return updated;
+}
+
+export function deleteLocalOperationalExpense(id: string): { success: boolean } {
+  const db = loadDb();
+  if (!db.pengeluaran_operasional) db.pengeluaran_operasional = [];
+
+  const beforeLen = db.pengeluaran_operasional.length;
+  db.pengeluaran_operasional = db.pengeluaran_operasional.filter((e) => e.id !== id);
+  if (db.pengeluaran_operasional.length !== beforeLen) {
+    saveDb();
+  }
+  return { success: true };
+}
+

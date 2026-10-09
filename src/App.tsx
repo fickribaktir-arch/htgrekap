@@ -7,7 +7,8 @@ import {
   InvoiceRecord, 
   ExportHistoryItem, 
   NoteItem, 
-  DashboardPeriod 
+  DashboardPeriod,
+  OperationalExpense 
 } from './types';
 import { 
   INITIAL_KITCHENS, 
@@ -21,9 +22,15 @@ import { RekapView } from './components/RekapView';
 import { TransactionsView } from './components/TransactionsView';
 import { SupplierMonitoringView } from './components/SupplierMonitoringView';
 import { DriverDeliveryView } from './components/DriverDeliveryView';
+import { OperationalExpensesView } from './components/OperationalExpensesView';
 import { ConfirmModal } from './components/ConfirmModal';
 import { Toast, ToastMessage, ToastType } from './components/Toast';
 import { getTodayWIB, isOrderToday, isOrderThisWeek, getWeekRange } from './lib/formatters';
+import { 
+  createOperationalExpenseInDb, 
+  updateOperationalExpenseInDb, 
+  deleteOperationalExpenseInDb 
+} from './lib/supabaseDb';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Lazy-loaded modal components to significantly reduce initial bundle size and tablet memory usage
@@ -61,6 +68,7 @@ export default function App() {
   const [exportHistory, setExportHistory] = useLocalStorage<ExportHistoryItem[]>('dapur_export_history_v1', []);
   const [notes, setNotes] = useLocalStorage<NoteItem[]>('dapur_highlight_notes_v1', []);
   const [dashboardPeriod, setDashboardPeriod] = useLocalStorage<DashboardPeriod>('dapur_dashboard_period_v3', 'all_time');
+  const [operationalExpenses, setOperationalExpenses] = useState<OperationalExpense[]>([]);
 
   // Auth & PIN State (Terkoneksi langsung ke Supabase tanpa plain text di web)
   const [authStatus, setAuthStatus] = useState<AuthStatusResponse | null>(null);
@@ -169,6 +177,7 @@ export default function App() {
     setOrders,
     setInvoices,
     setNotes,
+    setOperationalExpenses,
     showToast,
   });
 
@@ -403,8 +412,52 @@ export default function App() {
     setInvoices([]);
     setExportHistory([]);
     setNotes([]);
-    showToast('Seluruh data pesanan, transaksi, dan catatan berhasil dihapus bersih', 'delete');
+    setOperationalExpenses([]);
+    showToast('Seluruh data pesanan, transaksi, catatan, dan pengeluaran berhasil dihapus bersih', 'delete');
   }, [setOrders, setInvoices, setExportHistory, setNotes, showToast]);
+
+  // Operational Expenses CRUD Handlers
+  const handleCreateOperationalExpense = useCallback(async (data: Partial<OperationalExpense>) => {
+    try {
+      const res = await createOperationalExpenseInDb(data);
+      if (res.success && res.expense) {
+        setOperationalExpenses((prev) => [res.expense!, ...prev]);
+        showToast('Pengeluaran operasional berhasil dicatat!', 'success');
+      } else {
+        showToast(res.error || 'Gagal menyimpan pengeluaran', 'error');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Gagal menyimpan pengeluaran', 'error');
+    }
+  }, [showToast]);
+
+  const handleUpdateOperationalExpense = useCallback(async (id: string, data: Partial<OperationalExpense>) => {
+    try {
+      const res = await updateOperationalExpenseInDb(id, data);
+      if (res.success && res.expense) {
+        setOperationalExpenses((prev) => prev.map((e) => (e.id === id ? res.expense! : e)));
+        showToast('Pengeluaran operasional berhasil diperbarui!', 'edit');
+      } else {
+        showToast(res.error || 'Gagal memperbarui pengeluaran', 'error');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Gagal memperbarui pengeluaran', 'error');
+    }
+  }, [showToast]);
+
+  const handleDeleteOperationalExpense = useCallback(async (id: string) => {
+    try {
+      const res = await deleteOperationalExpenseInDb(id);
+      if (res.success) {
+        setOperationalExpenses((prev) => prev.filter((e) => e.id !== id));
+        showToast('Pengeluaran operasional berhasil dihapus!', 'delete');
+      } else {
+        showToast(res.error || 'Gagal menghapus pengeluaran', 'error');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Gagal menghapus pengeluaran', 'error');
+    }
+  }, [showToast]);
 
   return (
     <div className={`min-h-screen bg-[#eef2f6] dark:bg-[#090a0c] text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white transition-colors duration-200 ${activeTab === 'pengiriman' ? 'pb-8' : 'pb-36 sm:pb-24'}`}>
@@ -418,11 +471,13 @@ export default function App() {
           kitchens={kitchens}
           period={dashboardPeriod}
           onPeriodChange={setDashboardPeriod}
+          operationalExpenses={operationalExpenses}
           onToggleNoteStatus={handleToggleNoteStatus}
           onFollowUpNote={handleOpenFollowUpNote}
           onOpenNewNoteSheet={() => setIsNoteSheetOpen(true)}
           onDeleteSelectedNotes={confirmDeleteSelectedNotes}
           onOpenRekap={() => setActiveTab('rekap')}
+          onOpenExpenses={() => handleTabChange('pengeluaran')}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenExportHistory={() => setIsExportHistoryOpen(true)}
           onLockApp={handleLockApp}
@@ -455,6 +510,10 @@ export default function App() {
                   pemasokList={pemasokList}
                   selectedDate={selectedDate}
                   onDateChange={setSelectedDate}
+                  period={dashboardPeriod}
+                  onPeriodChange={setDashboardPeriod}
+                  operationalExpenses={operationalExpenses}
+                  onNavigateToExpenses={() => handleTabChange('pengeluaran')}
                   onToggleStatus={handleToggleStatus}
                   onUpdatePaymentStatus={handleUpdatePaymentStatus}
                   onUpdateDeliveryStatus={handleUpdateDeliveryStatus}
@@ -550,6 +609,24 @@ export default function App() {
                   onUpdateDeliveryStatus={handleUpdateDeliveryStatus}
                   onUpdateGroupDeliveryStatus={handleUpdateGroupDeliveryStatus}
                   kitchens={kitchens}
+                />
+              </motion.div>
+            ) : activeTab === 'pengeluaran' ? (
+              <motion.div
+                key="pengeluaran"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+              >
+                <OperationalExpensesView
+                  expenses={operationalExpenses}
+                  isLoading={isLoadingDb}
+                  selectedDate={selectedDate}
+                  onDateChange={setSelectedDate}
+                  onCreateExpense={handleCreateOperationalExpense}
+                  onUpdateExpense={handleUpdateOperationalExpense}
+                  onDeleteExpense={handleDeleteOperationalExpense}
                 />
               </motion.div>
             ) : (

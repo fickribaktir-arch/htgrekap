@@ -28,6 +28,7 @@ export interface DashboardSummaryMetrics {
   totalPenjualan: number;
   totalPengeluaran: number;
   totalCashback: number;
+  biayaOperasional: number;
   totalLabaBersih: number;
   isValid: boolean;
   discrepancies: string[];
@@ -153,7 +154,8 @@ export function filterOrdersByStatus(
 export function computeAndValidateDashboardSummary(
   allFilteredOrders: OrderItem[],
   displayedOrders: OrderItem[],
-  statusFilter: DashboardStatusFilter = 'all'
+  statusFilter: DashboardStatusFilter = 'all',
+  biayaOperasional: number = 0
 ): DashboardSummaryMetrics {
   const allGroups = groupOrdersByBatch(allFilteredOrders);
   const displayedGroups = groupOrdersByBatch(displayedOrders);
@@ -211,8 +213,11 @@ export function computeAndValidateDashboardSummary(
     totalPenjualan += omzetItem;
     totalPengeluaran += modalItem;
     totalCashback += cashbackItem;
-    totalLabaBersih += labaItem;
   }
+
+  // Laba Bersih = Total Penjualan - Pengeluaran (Beli) - Total Cashback - Biaya Operasional
+  const safeBiayaOperasional = Math.max(0, biayaOperasional || 0);
+  totalLabaBersih = totalPenjualan - totalPengeluaran - totalCashback - safeBiayaOperasional;
 
   // Run Data Validation Assertions
   const discrepancies: string[] = [];
@@ -296,6 +301,7 @@ export function computeAndValidateDashboardSummary(
     totalPenjualan,
     totalPengeluaran,
     totalCashback,
+    biayaOperasional: safeBiayaOperasional,
     totalLabaBersih,
     isValid,
     discrepancies,

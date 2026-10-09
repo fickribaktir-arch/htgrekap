@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
-import { OrderItem, InvoiceRecord, NoteItem } from '../types';
+import { OrderItem, InvoiceRecord, NoteItem, OperationalExpense } from '../types';
 import { TabType } from '../components/BottomNav';
 import { 
   fetchOrdersFromDb, 
   fetchTransactionsFromDb, 
-  fetchNotesFromDb 
+  fetchNotesFromDb,
+  fetchOperationalExpensesFromDb 
 } from '../lib/supabaseDb';
 import { subscribeToTableChanges } from '../lib/supabaseClient';
 import { invalidateCache } from '../lib/cacheManager';
@@ -14,6 +15,7 @@ interface UseDatabaseSyncProps {
   setOrders: Dispatch<SetStateAction<OrderItem[]>>;
   setInvoices: Dispatch<SetStateAction<InvoiceRecord[]>>;
   setNotes: Dispatch<SetStateAction<NoteItem[]>>;
+  setOperationalExpenses?: Dispatch<SetStateAction<OperationalExpense[]>>;
   showToast: (message: string, type?: 'success' | 'delete' | 'edit' | 'info' | 'error') => void;
 }
 
@@ -22,6 +24,7 @@ export function useDatabaseSync({
   setOrders,
   setInvoices,
   setNotes,
+  setOperationalExpenses,
   showToast,
 }: UseDatabaseSyncProps) {
   const [isLoadingDb, setIsLoadingDb] = useState(false);
@@ -38,15 +41,17 @@ export function useDatabaseSync({
     setIsLoadingDb(true);
     setDbError(null);
     try {
-      const [ordersRes, txRes, notesRes] = await Promise.all([
+      const [ordersRes, txRes, notesRes, expensesRes] = await Promise.all([
         fetchOrdersFromDb({ forceRefresh: showToastNotice }),
         fetchTransactionsFromDb(500, 1, showToastNotice, true),
         fetchNotesFromDb(showToastNotice),
+        fetchOperationalExpensesFromDb(showToastNotice),
       ]);
 
       let loadedOrdersCount = 0;
       let loadedInvoicesCount = 0;
       let loadedNotesCount = 0;
+      let loadedExpensesCount = 0;
 
       if (ordersRes.success && Array.isArray(ordersRes.orders)) {
         setOrders(ordersRes.orders);
@@ -63,6 +68,11 @@ export function useDatabaseSync({
         loadedNotesCount = notesRes.notes.length;
       }
 
+      if (expensesRes.success && Array.isArray(expensesRes.expenses) && setOperationalExpenses) {
+        setOperationalExpenses(expensesRes.expenses);
+        loadedExpensesCount = expensesRes.expenses.length;
+      }
+
       const nowStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
       setLastSyncedTime(`Pukul ${nowStr}`);
 
@@ -74,7 +84,7 @@ export function useDatabaseSync({
         }
       } else if (showToastNotice) {
         showToast(
-          `Berhasil memuat ${loadedOrdersCount} pesanan, ${loadedNotesCount} catatan & ${loadedInvoicesCount} transaksi dari Supabase!`,
+          `Berhasil memuat ${loadedOrdersCount} pesanan, ${loadedExpensesCount} pengeluaran, ${loadedNotesCount} catatan & ${loadedInvoicesCount} transaksi dari Supabase!`,
           'success'
         );
       }
@@ -88,7 +98,7 @@ export function useDatabaseSync({
       setIsLoadingDb(false);
       isFetchingDataRef.current = false;
     }
-  }, [setOrders, setInvoices, setNotes, showToast]);
+  }, [setOrders, setInvoices, setNotes, setOperationalExpenses, showToast]);
 
   // Initial load
   useEffect(() => {
@@ -121,6 +131,7 @@ export function useDatabaseSync({
     let unsubscribePesanan: (() => void) | undefined;
     let unsubscribeNotes: (() => void) | undefined;
     let unsubscribeTransaksi: (() => void) | undefined;
+    let unsubscribePengeluaran: (() => void) | undefined;
 
     const setupRealtime = async () => {
       try {
@@ -134,9 +145,16 @@ export function useDatabaseSync({
             invalidateCache('notes');
             loadDatabaseData(false);
           });
+          unsubscribePengeluaran = await subscribeToTableChanges('pengeluaran_operasional', () => {
+            loadDatabaseData(false);
+          });
         } else if (activeTab === 'transaksi') {
           unsubscribeTransaksi = await subscribeToTableChanges('transaksi', () => {
             invalidateCache('transaksi');
+            loadDatabaseData(false);
+          });
+        } else if (activeTab === 'pengeluaran') {
+          unsubscribePengeluaran = await subscribeToTableChanges('pengeluaran_operasional', () => {
             loadDatabaseData(false);
           });
         }
@@ -154,6 +172,7 @@ export function useDatabaseSync({
       if (unsubscribePesanan) unsubscribePesanan();
       if (unsubscribeNotes) unsubscribeNotes();
       if (unsubscribeTransaksi) unsubscribeTransaksi();
+      if (unsubscribePengeluaran) unsubscribePengeluaran();
     };
   }, [activeTab, loadDatabaseData, showToast]);
 

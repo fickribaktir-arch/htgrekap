@@ -33,6 +33,10 @@ import {
   checkMasterUsageInDb,
   verifyPinInDb,
   getAuthPinStatus,
+  getOperationalExpensesFromDb,
+  createOperationalExpenseInDb,
+  updateOperationalExpenseInDb,
+  deleteOperationalExpenseInDb,
 } from './server/supabaseService.js';
 
 const TEMPLATE_URLS: Record<string, string> = {
@@ -591,6 +595,95 @@ async function startServer() {
 
   app.delete('/api/notes', handleDeleteNote);
   app.delete('/api/supabase/notes', handleDeleteNote);
+
+  // ---------------------------------------------------------------------------
+  // 4B. PENGELUARAN OPERASIONAL (Biaya Operasional) Endpoints
+  // ---------------------------------------------------------------------------
+  const handleGetExpenses = async (req: express.Request, res: express.Response) => {
+    try {
+      const data = await getOperationalExpensesFromDb();
+      return res.json({ success: true, expenses: data, count: data.length });
+    } catch (error) {
+      console.error('[Expenses GET Error]:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Gagal mengambil data pengeluaran operasional',
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  };
+
+  const handlePostExpense = async (req: express.Request, res: express.Response) => {
+    try {
+      const data = await createOperationalExpenseInDb(req.body);
+      return res.json({
+        success: true,
+        expense: data,
+        message: 'Pengeluaran operasional berhasil disimpan.',
+      });
+    } catch (error) {
+      console.error('[Expenses POST Error]:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Gagal menyimpan pengeluaran operasional',
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  };
+
+  const handleUpdateExpense = async (req: express.Request, res: express.Response) => {
+    try {
+      const id = (req.body.id || req.query.id || '') as string;
+      if (!id) {
+        return res.status(400).json({ success: false, message: 'ID pengeluaran wajib diisi.' });
+      }
+      const data = await updateOperationalExpenseInDb(id, req.body);
+      return res.json({
+        success: true,
+        expense: data,
+        message: 'Pengeluaran operasional berhasil diperbarui.',
+      });
+    } catch (error) {
+      console.error('[Expenses PUT Error]:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Gagal memperbarui pengeluaran operasional',
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  };
+
+  const handleDeleteExpense = async (req: express.Request, res: express.Response) => {
+    try {
+      const id = (req.body.id || req.query.id || '') as string;
+      if (!id) {
+        return res.status(400).json({ success: false, message: 'ID pengeluaran wajib diisi.' });
+      }
+      await deleteOperationalExpenseInDb(id);
+      return res.json({
+        success: true,
+        message: 'Pengeluaran operasional berhasil dihapus.',
+      });
+    } catch (error) {
+      console.error('[Expenses DELETE Error]:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Gagal menghapus pengeluaran operasional',
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  };
+
+  app.get('/api/pengeluaran', handleGetExpenses);
+  app.get('/api/supabase/pengeluaran', handleGetExpenses);
+  app.post('/api/pengeluaran', handlePostExpense);
+  app.post('/api/supabase/pengeluaran', handlePostExpense);
+  app.put('/api/pengeluaran', handleUpdateExpense);
+  app.patch('/api/pengeluaran', handleUpdateExpense);
+  app.put('/api/supabase/pengeluaran', handleUpdateExpense);
+  app.patch('/api/supabase/pengeluaran', handleUpdateExpense);
+  app.delete('/api/pengeluaran', handleDeleteExpense);
+  app.delete('/api/supabase/pengeluaran', handleDeleteExpense);
 
   // ---------------------------------------------------------------------------
   // 5. MASTER DATA (toko, pemasok, dapur) Endpoints

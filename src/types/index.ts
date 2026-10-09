@@ -201,3 +201,30 @@ export interface ExportHistoryItem {
 }
 
 export type InvoicePriceVariant = 'ori' | 'cashback';
+
+export type ExpenseCategory =
+  | 'Transportasi'
+  | 'BBM'
+  | 'Gaji'
+  | 'Listrik'
+  | 'Sewa'
+  | 'Pemeliharaan'
+  | 'Konsumsi'
+  | 'Peralatan'
+  | 'Lainnya';
+
+export type PaymentMethod = 'Tunai' | 'Transfer Bank' | 'QRIS' | 'Kartu Debit' | 'Lainnya';
+
+export interface OperationalExpense {
+  id: string;
+  tanggal: string; // YYYY-MM-DD
+  kategori: string;
+  nominal: number; // Nominal Rupiah > 0
+  metodePembayaran: string;
+  metode_pembayaran?: string;
+  keterangan?: string;
+  createdAt?: string;
+  created_at?: string;
+  updatedAt?: string;
+  updated_at?: string;
+}

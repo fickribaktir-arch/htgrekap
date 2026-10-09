@@ -310,5 +310,10 @@ describe('Dashboard Status Metrics Validation', () => {
 
     // Laba Bersih: Item 1 ((22.000 - 20.000) * 10 = 20.000) + Item 2 ((15.000 - 12.000) * 18 = 54.000) = 74.000
     expect(summary.totalLabaBersih).toBe(74000);
+
+    // Pengujian dengan Biaya Operasional: Laba Bersih = Penjualan - Beli - Cashback - Biaya Operasional
+    const summaryWithExpenses = computeAndValidateDashboardSummary(mockOrdersWithCashback, displayed, 'all', 20000);
+    expect(summaryWithExpenses.biayaOperasional).toBe(20000);
+    expect(summaryWithExpenses.totalLabaBersih).toBe(54000);
   });
 });

@@ -1,4 +1,4 @@
-import { OrderItem, InvoiceRecord, NoteItem, FollowUpItemRow, PeriodSummaryStats, MasterToko, MasterPemasok, MasterDapur, MasterSatuan, DeliveryStatus } from '../types';
+import { OrderItem, InvoiceRecord, NoteItem, FollowUpItemRow, PeriodSummaryStats, MasterToko, MasterPemasok, MasterDapur, MasterSatuan, DeliveryStatus, OperationalExpense } from '../types';
 import { getFromCache, setInCache, invalidateCache } from './cacheManager';
 
 export interface SupabaseStatusResult {
@@ -1172,3 +1172,94 @@ export async function checkMasterUsageFromDb(
     };
   }
 }
+
+// -----------------------------------------------------------------------------
+// PENGELUARAN OPERASIONAL CLIENT API
+// -----------------------------------------------------------------------------
+export async function fetchOperationalExpensesFromDb(forceRefresh = false): Promise<{
+  success: boolean;
+  expenses: OperationalExpense[];
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/pengeluaran');
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, expenses: [], error: json.message || 'Gagal memuat pengeluaran operasional' };
+    }
+    const rawList = Array.isArray(json.expenses) ? json.expenses : [];
+    const expenses: OperationalExpense[] = rawList.map((item: any) => ({
+      id: item.id || `exp-${Date.now()}`,
+      tanggal: item.tanggal || new Date().toISOString().slice(0, 10),
+      kategori: item.kategori || 'Lainnya',
+      nominal: Number(item.nominal) || 0,
+      metodePembayaran: item.metode_pembayaran || item.metodePembayaran || 'Tunai',
+      metode_pembayaran: item.metode_pembayaran || item.metodePembayaran || 'Tunai',
+      keterangan: item.keterangan || '',
+      createdAt: item.created_at || item.createdAt || new Date().toISOString(),
+      created_at: item.created_at || item.createdAt || new Date().toISOString(),
+      updatedAt: item.updated_at || item.updatedAt,
+      updated_at: item.updated_at || item.updatedAt,
+    }));
+    return { success: true, expenses };
+  } catch (err: any) {
+    return { success: false, expenses: [], error: err?.message || 'Koneksi error' };
+  }
+}
+
+export async function createOperationalExpenseInDb(expense: Partial<OperationalExpense>): Promise<{
+  success: boolean;
+  expense?: OperationalExpense;
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/pengeluaran', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(expense),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.message || 'Gagal menyimpan pengeluaran operasional' };
+    }
+    return { success: true, expense: json.expense };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Error koneksi saat menyimpan pengeluaran' };
+  }
+}
+
+export async function updateOperationalExpenseInDb(
+  id: string,
+  updates: Partial<OperationalExpense>
+): Promise<{ success: boolean; expense?: OperationalExpense; error?: string }> {
+  try {
+    const res = await fetch('/api/pengeluaran', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...updates }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.message || 'Gagal memperbarui pengeluaran operasional' };
+    }
+    return { success: true, expense: json.expense };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Error koneksi saat memperbarui pengeluaran' };
+  }
+}
+
+export async function deleteOperationalExpenseInDb(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(`/api/pengeluaran?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.message || 'Gagal menghapus pengeluaran operasional' };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Error koneksi saat menghapus pengeluaran' };
+  }
+}
+

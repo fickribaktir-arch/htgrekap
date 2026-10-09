@@ -28,6 +28,10 @@ import {
   deleteMasterSatuan as deleteLocalMasterSatuan,
   checkMasterUsage as checkLocalMasterUsage,
   generateOrGetLocalInvoiceNumber,
+  getLocalOperationalExpenses,
+  createLocalOperationalExpense,
+  updateLocalOperationalExpense,
+  deleteLocalOperationalExpense,
 } from './localDbFallback.js';
 import { fetchAllRowsInBatches } from './paginatedFetch.js';
 
@@ -2030,3 +2034,145 @@ export async function verifyPinInDb(pin: string): Promise<{
     };
   }
 }
+
+// =============================================================================
+// OPERATIONAL EXPENSES (pengeluaran_operasional) SUPABASE CRUD
+// =============================================================================
+export async function getOperationalExpensesFromDb(): Promise<any[]> {
+  if (!isSupabaseConfigured()) {
+    return getLocalOperationalExpenses();
+  }
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('pengeluaran_operasional')
+      .select('*')
+      .order('tanggal', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      if (isTableMissingError(error)) {
+        return getLocalOperationalExpenses();
+      }
+      console.warn('[Supabase] Gagal mengambil pengeluaran operasional:', error.message);
+      return getLocalOperationalExpenses();
+    }
+    return data || [];
+  } catch (err: any) {
+    if (isTableMissingError(err)) {
+      return getLocalOperationalExpenses();
+    }
+    console.warn('[Supabase] Exception saat mengambil pengeluaran operasional:', err.message);
+    return getLocalOperationalExpenses();
+  }
+}
+
+export async function createOperationalExpenseInDb(payload: any): Promise<any> {
+  const rowData = {
+    id: payload.id || `exp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    tanggal: payload.tanggal || new Date().toISOString().slice(0, 10),
+    kategori: payload.kategori || 'Lainnya',
+    nominal: Math.max(0, Number(payload.nominal) || 0),
+    metode_pembayaran: payload.metodePembayaran || payload.metode_pembayaran || 'Tunai',
+    keterangan: payload.keterangan || '',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (!isSupabaseConfigured()) {
+    return createLocalOperationalExpense(rowData);
+  }
+
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('pengeluaran_operasional')
+      .insert(rowData)
+      .select('*')
+      .single();
+
+    if (error) {
+      if (isTableMissingError(error)) {
+        return createLocalOperationalExpense(rowData);
+      }
+      console.warn('[Supabase] Insert pengeluaran error, fallback ke lokal:', error.message);
+      return createLocalOperationalExpense(rowData);
+    }
+    return data;
+  } catch (err: any) {
+    if (isTableMissingError(err)) {
+      return createLocalOperationalExpense(rowData);
+    }
+    return createLocalOperationalExpense(rowData);
+  }
+}
+
+export async function updateOperationalExpenseInDb(id: string, updates: any): Promise<any> {
+  const patch: any = {
+    updated_at: new Date().toISOString(),
+  };
+  if (updates.tanggal !== undefined) patch.tanggal = updates.tanggal;
+  if (updates.kategori !== undefined) patch.kategori = updates.kategori;
+  if (updates.nominal !== undefined) patch.nominal = Math.max(0, Number(updates.nominal) || 0);
+  if (updates.metodePembayaran !== undefined || updates.metode_pembayaran !== undefined) {
+    patch.metode_pembayaran = updates.metodePembayaran || updates.metode_pembayaran;
+  }
+  if (updates.keterangan !== undefined) patch.keterangan = updates.keterangan;
+
+  if (!isSupabaseConfigured()) {
+    return updateLocalOperationalExpense(id, patch);
+  }
+
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('pengeluaran_operasional')
+      .update(patch)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      if (isTableMissingError(error)) {
+        return updateLocalOperationalExpense(id, patch);
+      }
+      console.warn('[Supabase] Update pengeluaran error, fallback ke lokal:', error.message);
+      return updateLocalOperationalExpense(id, patch);
+    }
+    return data;
+  } catch (err: any) {
+    if (isTableMissingError(err)) {
+      return updateLocalOperationalExpense(id, patch);
+    }
+    return updateLocalOperationalExpense(id, patch);
+  }
+}
+
+export async function deleteOperationalExpenseInDb(id: string): Promise<{ success: boolean }> {
+  if (!isSupabaseConfigured()) {
+    return deleteLocalOperationalExpense(id);
+  }
+
+  try {
+    const supabase = getSupabase();
+    const { error } = await supabase
+      .from('pengeluaran_operasional')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      if (isTableMissingError(error)) {
+        return deleteLocalOperationalExpense(id);
+      }
+      console.warn('[Supabase] Delete pengeluaran error, fallback ke lokal:', error.message);
+      return deleteLocalOperationalExpense(id);
+    }
+    return { success: true };
+  } catch (err: any) {
+    if (isTableMissingError(err)) {
+      return deleteLocalOperationalExpense(id);
+    }
+    return deleteLocalOperationalExpense(id);
+  }
+}
+

@@ -411,9 +411,9 @@ END;
 $$;
 
 -- -----------------------------------------------------------------------------
--- 8. AKTIFKAN SUPABASE REALTIME (Hemat Bandwidth: Master Data, Pesanan, Transaksi)
+-- 8. AKTIFKAN SUPABASE REALTIME (Hemat Bandwidth: Master Data, Pesanan, Transaksi, Pengeluaran)
 -- -----------------------------------------------------------------------------
-ALTER PUBLICATION supabase_realtime ADD TABLE public.toko, public.pemasok, public.dapur, public.pesanan, public.transaksi, public.notes;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.toko, public.pemasok, public.dapur, public.pesanan, public.transaksi, public.notes, public.pengeluaran_operasional;
 
 -- -----------------------------------------------------------------------------
 -- 9. TABEL AUTH KEY & PIN KEAMANAN (Master PIN untuk Akses Halaman Utama)
@@ -450,3 +450,42 @@ VALUES (
   'Master PIN Halaman Utama HTG Accounting'
 )
 ON CONFLICT (id) DO NOTHING;
+
+-- -----------------------------------------------------------------------------
+-- 10. TABEL: pengeluaran_operasional (Biaya Operasional Di Luar Pembelian Supplier)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.pengeluaran_operasional (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  tanggal DATE NOT NULL DEFAULT CURRENT_DATE,
+  kategori TEXT NOT NULL DEFAULT 'Lainnya',
+  nominal NUMERIC(15, 2) NOT NULL DEFAULT 0,
+  metode_pembayaran TEXT NOT NULL DEFAULT 'Tunai',
+  keterangan TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_pengeluaran_tanggal ON public.pengeluaran_operasional (tanggal);
+CREATE INDEX IF NOT EXISTS idx_pengeluaran_kategori ON public.pengeluaran_operasional (kategori);
+
+ALTER TABLE public.pengeluaran_operasional ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow anon select pengeluaran_operasional" ON public.pengeluaran_operasional;
+CREATE POLICY "Allow anon select pengeluaran_operasional" ON public.pengeluaran_operasional
+  FOR SELECT TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Allow anon insert pengeluaran_operasional" ON public.pengeluaran_operasional;
+CREATE POLICY "Allow anon insert pengeluaran_operasional" ON public.pengeluaran_operasional
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow anon update pengeluaran_operasional" ON public.pengeluaran_operasional;
+CREATE POLICY "Allow anon update pengeluaran_operasional" ON public.pengeluaran_operasional
+  FOR UPDATE TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Allow anon delete pengeluaran_operasional" ON public.pengeluaran_operasional;
+CREATE POLICY "Allow anon delete pengeluaran_operasional" ON public.pengeluaran_operasional
+  FOR DELETE TO anon, authenticated
+  USING (true);

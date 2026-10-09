@@ -59,7 +59,7 @@ export async function getClientSupabase(): Promise<SupabaseClient | null> {
  * Kembalikan fungsi unsubscribe
  */
 export async function subscribeToTableChanges(
-  tableName: 'pesanan' | 'transaksi' | 'notes',
+  tableName: 'pesanan' | 'transaksi' | 'notes' | 'pengeluaran_operasional',
   onChange: (payload: any) => void
 ): Promise<() => void> {
   try {
