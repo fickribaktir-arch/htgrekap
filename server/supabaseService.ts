@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import crypto from 'node:crypto';
 import {
   getLocalOrders,
   createLocalOrders,
@@ -287,14 +288,14 @@ export function mapOrderDeliveryServer(row: any) {
   const rawCatatan = row.catatan || '';
   const match = rawCatatan.match(/\[DELIVERY:(DRIVER|PEMASOK|DONE)\]/i);
   let delStatus: 'DRIVER' | 'PEMASOK' | 'DONE';
-  if (row.status_pengiriman === 'DONE') {
+  const rawDel = (row.status_pengiriman || row.deliveryStatus || '').toString().toUpperCase();
+
+  if (rawDel === 'DONE') {
     delStatus = 'DONE';
-  } else if (match && match[1].toUpperCase() === 'DRIVER') {
+  } else if (rawDel === 'DRIVER' || (match && match[1].toUpperCase() === 'DRIVER')) {
     delStatus = 'DRIVER';
   } else if (match && match[1].toUpperCase() === 'PEMASOK') {
     delStatus = 'PEMASOK';
-  } else if (row.status_pengiriman === 'DRIVER') {
-    delStatus = 'DRIVER';
   } else {
     delStatus = 'PEMASOK';
   }
@@ -694,10 +695,10 @@ export async function updateOrderInDb(id: string, updates: any) {
       updates.toko_id !== undefined ||
       updates.tokoId !== undefined;
 
-    if (isDateOrStoreChanged || !targetNotaId) {
+    if (isDateOrStoreChanged || !targetNotaId || targetDeliveryStatus !== null) {
       const { data: curOrd } = await supabase
         .from('pesanan')
-        .select('id,nota_id,tanggal,toko,toko_id,invoice_number')
+        .select('id,nota_id,tanggal,toko,toko_id,invoice_number,catatan')
         .eq('id', id)
         .maybeSingle();
       oldOrder = curOrd;
@@ -1874,5 +1875,147 @@ export async function deleteMasterSatuanInDb(id: string) {
   } catch (err: any) {
     if (isTableMissingError(err)) return deleteLocalMasterSatuan(id);
     throw err;
+  }
+}
+
+// =============================================================================
+// AUTH KEY & PIN VERIFICATION (SERVER-SIDE ONLY - NEVER PLAIN TEXT IN CLIENT)
+// =============================================================================
+
+export async function getAuthPinStatus(): Promise<{
+  success: boolean;
+  configured: boolean;
+  hasPins: boolean;
+  message?: string;
+}> {
+  if (!isSupabaseConfigured()) {
+    return {
+      success: true,
+      configured: false,
+      hasPins: false,
+      message: 'Supabase belum dikonfigurasi.',
+    };
+  }
+
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('app_auth').select('id, key_name, role');
+    if (error) {
+      if (isTableMissingError(error) || error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+        return {
+          success: true,
+          configured: false,
+          hasPins: false,
+          message: 'Tabel app_auth belum dibuat di Supabase.',
+        };
+      }
+      return {
+        success: false,
+        configured: false,
+        hasPins: false,
+        message: error.message,
+      };
+    }
+
+    const hasPins = Array.isArray(data) && data.length > 0;
+    return {
+      success: true,
+      configured: true,
+      hasPins,
+      message: hasPins ? 'PIN aktif di Supabase' : 'Tabel app_auth ada tetapi belum ada data PIN',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      configured: false,
+      hasPins: false,
+      message: err?.message || 'Gagal memeriksa status auth PIN',
+    };
+  }
+}
+
+export async function verifyPinInDb(pin: string): Promise<{
+  success: boolean;
+  configured: boolean;
+  token?: string;
+  role?: string;
+  message: string;
+}> {
+  if (!pin || typeof pin !== 'string' || pin.trim() === '') {
+    return {
+      success: false,
+      configured: false,
+      message: 'PIN wajib diisi.',
+    };
+  }
+
+  const cleanPin = pin.trim();
+  const sha256Hash = crypto.createHash('sha256').update(cleanPin).digest('hex').toLowerCase();
+
+  if (!isSupabaseConfigured()) {
+    return {
+      success: false,
+      configured: false,
+      message: 'Supabase belum dikonfigurasi. Pastikan VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY telah diisi.',
+    };
+  }
+
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('app_auth').select('id, key_name, pin_hash, role');
+
+    if (error) {
+      if (isTableMissingError(error) || error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+        return {
+          success: false,
+          configured: false,
+          message: 'Tabel public.app_auth belum dibuat di Supabase. Silakan jalankan skrip supabase_auth_pin.sql di Supabase SQL Editor.',
+        };
+      }
+      return {
+        success: false,
+        configured: false,
+        message: `Error database Supabase: ${error.message}`,
+      };
+    }
+
+    if (!Array.isArray(data) || data.length === 0) {
+      return {
+        success: false,
+        configured: false,
+        message: 'Belum ada PIN yang diinput di tabel public.app_auth Supabase.',
+      };
+    }
+
+    // Cocokkan input user dengan baris di Supabase:
+    // Mendukung input langsung plain text di Supabase ('123456') ATAU format hash SHA-256!
+    const matched = data.find((row) => {
+      const stored = (row.pin_hash || '').toString().trim();
+      if (!stored) return false;
+      return stored === cleanPin || stored.toLowerCase() === sha256Hash;
+    });
+
+    if (matched) {
+      const token = `htg_auth_${Date.now()}_${crypto.randomBytes(16).toString('hex')}`;
+      return {
+        success: true,
+        configured: true,
+        token,
+        role: matched.role || 'admin',
+        message: 'PIN terverifikasi berhasil! Akses diberikan.',
+      };
+    }
+
+    return {
+      success: false,
+      configured: true,
+      message: 'PIN salah! Silakan periksa kembali PIN Anda.',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      configured: false,
+      message: err?.message || 'Terjadi kesalahan saat memverifikasi PIN.',
+    };
   }
 }

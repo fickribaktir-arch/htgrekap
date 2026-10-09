@@ -43,6 +43,13 @@ import { useDailyNotification } from './hooks/useDailyNotification';
 import { useNotesOperations } from './hooks/useNotesOperations';
 import { useInvoiceFlow } from './hooks/useInvoiceFlow';
 import { useOrderOperations } from './hooks/useOrderOperations';
+import { PinLockModal } from './components/PinLockModal';
+import { 
+  isSessionAuthenticated, 
+  clearAuthSession, 
+  fetchAuthStatus, 
+  AuthStatusResponse 
+} from './lib/authService';
 
 export default function App() {
   // Pure in-memory orders and invoices state populated from Supabase as single source of truth
@@ -54,6 +61,21 @@ export default function App() {
   const [exportHistory, setExportHistory] = useLocalStorage<ExportHistoryItem[]>('dapur_export_history_v1', []);
   const [notes, setNotes] = useLocalStorage<NoteItem[]>('dapur_highlight_notes_v1', []);
   const [dashboardPeriod, setDashboardPeriod] = useLocalStorage<DashboardPeriod>('dapur_dashboard_period_v3', 'all_time');
+
+  // Auth & PIN State (Terkoneksi langsung ke Supabase tanpa plain text di web)
+  const [authStatus, setAuthStatus] = useState<AuthStatusResponse | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => isSessionAuthenticated());
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+
+  // Periksa konfigurasi PIN dari database Supabase saat aplikasi dimuat
+  useEffect(() => {
+    fetchAuthStatus().then((status) => {
+      setAuthStatus(status);
+      if (status.hasPins && !isSessionAuthenticated()) {
+        setIsAuthenticated(false);
+      }
+    });
+  }, []);
 
   // Navigation State (Mendukung rute langsung /pengiriman untuk Driver)
   const [activeTab, setActiveTab] = useState<TabType>(() => {
@@ -84,6 +106,11 @@ export default function App() {
   }, []);
 
   const handleTabChange = useCallback((newTab: TabType) => {
+    // Jika user bukan driver (ingin masuk ke dashboard/rekap/transaksi), dan ada PIN aktif tapi belum login:
+    if (newTab !== 'pengiriman' && !isAuthenticated && authStatus?.hasPins) {
+      setIsPinModalOpen(true);
+      return;
+    }
     setActiveTab(newTab);
     if (typeof window !== 'undefined') {
       const targetPath = newTab === 'pengiriman' ? '/pengiriman' : '/';
@@ -91,6 +118,13 @@ export default function App() {
         window.history.pushState(null, '', targetPath);
       }
     }
+  }, [isAuthenticated, authStatus]);
+
+  // Lock Application Action
+  const handleLockApp = useCallback(() => {
+    clearAuthSession();
+    setIsAuthenticated(false);
+    setIsPinModalOpen(true);
   }, []);
 
   // Toast Notification State
@@ -391,6 +425,7 @@ export default function App() {
           onOpenRekap={() => setActiveTab('rekap')}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenExportHistory={() => setIsExportHistoryOpen(true)}
+          onLockApp={handleLockApp}
           isSyncingGas={isLoadingDb}
           isExportingActive={isExportingActive}
           exportHistoryCount={exportHistory.length}
@@ -723,6 +758,22 @@ export default function App() {
         onUpdateOrders={setOrders}
         onDeleteAllData={handleDeleteAllData}
         onRefreshData={refreshMasterData}
+        onLockApp={handleLockApp}
+      />
+
+      {/* 8. PIN Security Lock Modal (Protected by Supabase Auth Key) */}
+      <PinLockModal
+        isOpen={isPinModalOpen || (!isAuthenticated && authStatus?.hasPins === true && activeTab !== 'pengiriman')}
+        onSuccess={() => {
+          setIsAuthenticated(true);
+          setIsPinModalOpen(false);
+          showToast('PIN Terverifikasi! Selamat datang di HTG Accounting', 'success');
+        }}
+        onGoToDriverPortal={() => {
+          handleTabChange('pengiriman');
+          setIsPinModalOpen(false);
+        }}
+        authStatus={authStatus}
       />
       </React.Suspense>
     </div>

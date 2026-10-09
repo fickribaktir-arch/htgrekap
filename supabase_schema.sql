@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS public.pesanan (
   toko TEXT NOT NULL DEFAULT '',
   toko_id TEXT REFERENCES public.toko(id) ON DELETE RESTRICT,
   status_pembayaran TEXT NOT NULL DEFAULT 'UNPAID' CHECK (status_pembayaran IN ('UNPAID', 'PAID')),
-  status_pengiriman TEXT NOT NULL DEFAULT 'PENDING' CHECK (status_pengiriman IN ('PENDING', 'DONE')),
+  status_pengiriman TEXT NOT NULL DEFAULT 'PENDING' CHECK (status_pengiriman IN ('PENDING', 'DONE', 'DRIVER', 'PEMASOK')),
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'selesai', 'CANCELLED')),
   status_pembatalan TEXT,
   cancelled_at TIMESTAMPTZ,
@@ -84,6 +84,9 @@ ALTER TABLE public.pesanan ADD COLUMN IF NOT EXISTS cancelled_reason TEXT;
 -- Update constraint status jika sebelumnya hanya 'pending' dan 'selesai'
 ALTER TABLE public.pesanan DROP CONSTRAINT IF EXISTS pesanan_status_check;
 ALTER TABLE public.pesanan ADD CONSTRAINT pesanan_status_check CHECK (status IN ('pending', 'selesai', 'CANCELLED'));
+-- Update constraint status_pengiriman agar mendukung DRIVER dan PEMASOK
+ALTER TABLE public.pesanan DROP CONSTRAINT IF EXISTS pesanan_status_pengiriman_check;
+ALTER TABLE public.pesanan ADD CONSTRAINT pesanan_status_pengiriman_check CHECK (status_pengiriman IN ('PENDING', 'DONE', 'DRIVER', 'PEMASOK'));
 
 -- Indexing untuk query cepat berdasarkan tanggal, toko, dapur, status, nota_id, dan pembatalan
 CREATE INDEX IF NOT EXISTS idx_pesanan_tanggal ON public.pesanan (tanggal);
@@ -411,3 +414,39 @@ $$;
 -- 8. AKTIFKAN SUPABASE REALTIME (Hemat Bandwidth: Master Data, Pesanan, Transaksi)
 -- -----------------------------------------------------------------------------
 ALTER PUBLICATION supabase_realtime ADD TABLE public.toko, public.pemasok, public.dapur, public.pesanan, public.transaksi, public.notes;
+
+-- -----------------------------------------------------------------------------
+-- 9. TABEL AUTH KEY & PIN KEAMANAN (Master PIN untuk Akses Halaman Utama)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.app_auth (
+  id TEXT PRIMARY KEY DEFAULT 'app_admin_pin',
+  key_name TEXT NOT NULL UNIQUE DEFAULT 'admin_pin',
+  pin_hash TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'admin',
+  description TEXT DEFAULT 'Master Auth PIN untuk akses Halaman Utama & Akuntansi',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.app_auth ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow anon select app_auth" ON public.app_auth;
+CREATE POLICY "Allow anon select app_auth" ON public.app_auth
+  FOR SELECT TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Allow anon all app_auth" ON public.app_auth;
+CREATE POLICY "Allow anon all app_auth" ON public.app_auth
+  FOR ALL TO anon, authenticated
+  USING (true);
+
+-- Contoh default input PIN (Bisa diedit langsung oleh user di Supabase Table Editor atau SQL Editor):
+INSERT INTO public.app_auth (id, key_name, pin_hash, role, description)
+VALUES (
+  'app_admin_pin',
+  'admin_pin',
+  '123456', -- Ganti dengan PIN rahasia Anda
+  'admin',
+  'Master PIN Halaman Utama HTG Accounting'
+)
+ON CONFLICT (id) DO NOTHING;

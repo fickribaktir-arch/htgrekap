@@ -1,6 +1,6 @@
 import { Store as StoreType, Kitchen, OrderItem } from '../../types';
 
-export type SettingsTab = 'kelola_data' | 'backup' | 'template' | 'notifikasi' | 'install' | 'danger';
+export type SettingsTab = 'kelola_data' | 'keamanan' | 'backup' | 'template' | 'notifikasi' | 'install' | 'danger';
 export type KelolaSubTab = 'toko' | 'pemasok' | 'dapur';
 
 export interface SafetyDialogState {

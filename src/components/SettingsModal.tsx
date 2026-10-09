@@ -5,7 +5,8 @@ import {
   Smartphone, 
   FileText, 
   Bell, 
-  Database 
+  Database,
+  KeyRound,
 } from 'lucide-react';
 import { Kitchen, Store as StoreType, OrderItem } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -22,6 +23,7 @@ import { NotificationTab } from './settings/NotificationTab';
 import { InstallAppTab } from './settings/InstallAppTab';
 import { DangerZoneTab } from './settings/DangerZoneTab';
 import { SafetyDeleteDialog } from './settings/SafetyDeleteDialog';
+import { AuthSecurityTab } from './settings/AuthSecurityTab';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -36,7 +38,8 @@ interface SettingsModalProps {
   onUpdateOrders?: (orders: OrderItem[]) => void;
   onDeleteAllData?: () => void;
   onRefreshData?: () => void | Promise<void>;
-  initialTab?: 'kelola_data' | 'dapur' | 'toko' | 'pemasok' | 'template' | 'notifikasi' | 'install' | 'danger';
+  onLockApp?: () => void;
+  initialTab?: 'kelola_data' | 'keamanan' | 'dapur' | 'toko' | 'pemasok' | 'template' | 'notifikasi' | 'install' | 'danger';
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -51,6 +54,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   orders = [],
   onDeleteAllData,
   onRefreshData,
+  onLockApp,
   initialTab,
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
@@ -194,6 +198,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               <button
                 type="button"
+                onClick={() => setActiveTab('keamanan')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === 'keamanan'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700'
+                }`}
+              >
+                <KeyRound className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Keamanan PIN</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setActiveTab('template')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
                   activeTab === 'template'
@@ -261,6 +278,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onRefreshData={onRefreshData}
                 onOpenSafetyDialog={setSafetyDialog}
               />
+            )}
+
+            {activeTab === 'keamanan' && (
+              <AuthSecurityTab onLockApp={onLockApp} />
             )}
 
             {activeTab === 'template' && (

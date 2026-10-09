@@ -31,6 +31,8 @@ import {
   createMasterSatuanInDb,
   deleteMasterSatuanInDb,
   checkMasterUsageInDb,
+  verifyPinInDb,
+  getAuthPinStatus,
 } from './server/supabaseService.js';
 
 const TEMPLATE_URLS: Record<string, string> = {
@@ -191,6 +193,40 @@ async function startServer() {
       anonKey,
       configured: Boolean(url && (anonKey || serviceRoleKey)),
     });
+  });
+
+  // =============================================================================
+  // AUTH KEY & PIN ENDPOINTS (PIN KEAMANAN SUPABASE - TANPA PLAIN TEXT DI CLIENT)
+  // =============================================================================
+  app.get('/api/auth/status', async (req, res) => {
+    try {
+      const status = await getAuthPinStatus();
+      return res.json(status);
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        configured: false,
+        hasPins: false,
+        message: err?.message || 'Gagal memeriksa status PIN',
+      });
+    }
+  });
+
+  app.post('/api/auth/verify-pin', async (req, res) => {
+    try {
+      const pin = req.body?.pin;
+      const result = await verifyPinInDb(pin);
+      if (result.success) {
+        return res.json(result);
+      }
+      return res.status(401).json(result);
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        configured: false,
+        message: err?.message || 'Error server verifikasi PIN',
+      });
+    }
   });
 
   // 2. Orders (pesanan) Endpoints
