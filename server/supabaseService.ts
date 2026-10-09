@@ -1966,10 +1966,21 @@ export async function verifyPinInDb(pin: string): Promise<{
 
     if (error) {
       if (isTableMissingError(error) || error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+        // Fallback PIN default (123456) jika tabel belum dibuat di Supabase
+        if (cleanPin === '123456') {
+          const token = `htg_auth_${Date.now()}_${crypto.randomBytes(16).toString('hex')}`;
+          return {
+            success: true,
+            configured: false,
+            token,
+            role: 'admin',
+            message: 'PIN valid (PIN default awal 123456). Segera input PIN kustom Anda di Supabase!',
+          };
+        }
         return {
           success: false,
           configured: false,
-          message: 'Tabel public.app_auth belum dibuat di Supabase. Silakan jalankan skrip supabase_auth_pin.sql di Supabase SQL Editor.',
+          message: 'PIN salah! Gunakan PIN default awal 123456 atau buat tabel di Supabase.',
         };
       }
       return {

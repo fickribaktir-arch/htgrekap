@@ -219,11 +219,11 @@ export const PinLockModal: React.FC<PinLockModalProps> = ({
             )}
           </AnimatePresence>
 
-          {/* Notice jika tabel app_auth belum ada di Supabase */}
-          {isTableNotConfigured && (
+          {/* Notice status konfigurasi Supabase */}
+          {isTableNotConfigured ? (
             <div className="w-full mb-3 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 text-xs text-left space-y-1.5">
               <div className="font-bold flex items-center justify-between">
-                <span>⚠️ Tabel PIN Belum Ada di Supabase</span>
+                <span>🔐 PIN Akses Web Aktif</span>
                 <button
                   type="button"
                   onClick={handleCopySql}
@@ -234,8 +234,12 @@ export const PinLockModal: React.FC<PinLockModalProps> = ({
                 </button>
               </div>
               <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
-                Jalankan script SQL di Supabase SQL Editor untuk membuat tabel <code className="font-mono bg-amber-100 dark:bg-amber-900/60 px-1 rounded">public.app_auth</code> dan input PIN Anda.
+                PIN default awal: <strong className="font-mono bg-amber-200/80 dark:bg-amber-900/80 px-1 py-0.5 rounded text-amber-900 dark:text-amber-100">123456</strong>. Untuk menentukan PIN rahasia Anda sendiri, salin &amp; jalankan skrip SQL di Supabase SQL Editor.
               </p>
+            </div>
+          ) : (
+            <div className="w-full mb-3 p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-200 text-xs text-center font-medium">
+              <span>Masukkan PIN yang telah Anda tentukan di Supabase untuk membuka akses web.</span>
             </div>
           )}
 

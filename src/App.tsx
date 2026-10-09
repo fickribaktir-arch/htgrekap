@@ -763,7 +763,7 @@ export default function App() {
 
       {/* 8. PIN Security Lock Modal (Protected by Supabase Auth Key) */}
       <PinLockModal
-        isOpen={isPinModalOpen || (!isAuthenticated && authStatus?.hasPins === true && activeTab !== 'pengiriman')}
+        isOpen={isPinModalOpen || (!isAuthenticated && activeTab !== 'pengiriman')}
         onSuccess={() => {
           setIsAuthenticated(true);
           setIsPinModalOpen(false);
