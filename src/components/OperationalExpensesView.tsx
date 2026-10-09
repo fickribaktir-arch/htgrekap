@@ -24,15 +24,13 @@ import {
   Utensils,
   ShoppingBag,
   MoreHorizontal,
-  ChevronDown,
-  Database
+  ChevronDown
 } from 'lucide-react';
 import { OperationalExpense } from '../types';
 import { formatRupiah, formatTanggalSimple, getTodayWIB, normalizeDateSimple } from '../lib/formatters';
 import { DateFilterPill, DateFilterValue } from './DateFilterPill';
 import { AnimatedCounter } from './AnimatedCounter';
 import { MoneyInput, formatIDR } from './MoneyInput';
-import { SqlViewerModal } from './settings/SqlViewerModal';
 
 export const EXPENSE_CATEGORIES = [
   'Transportasi',
@@ -155,7 +153,6 @@ export const OperationalExpensesView: React.FC<OperationalExpensesViewProps> = R
 
   // Modal Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSqlModalOpen, setIsSqlModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<OperationalExpense | null>(null);
   const [formTanggal, setFormTanggal] = useState<string>(() => getTodayWIB());
   const [formKategori, setFormKategori] = useState<string>('BBM');
@@ -348,25 +345,14 @@ export const OperationalExpensesView: React.FC<OperationalExpensesViewProps> = R
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => setIsSqlModalOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-300/80 dark:border-slate-700 transition-all cursor-pointer min-h-[44px]"
-            title="Lihat & Salin Skrip SQL untuk Supabase SQL Editor"
-          >
-            <Database className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-            <span>Skrip SQL Supabase</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all cursor-pointer min-h-[44px]"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Tambah Pengeluaran</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleOpenCreateModal}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all cursor-pointer shrink-0 min-h-[44px]"
+        >
+          <Plus className="w-4 h-4 stroke-[2.5]" />
+          <span>Tambah Pengeluaran</span>
+        </button>
       </div>
 
       {/* 2. Summary KPI Cards (Total Pengeluaran, Jumlah Transaksi, Rata-rata, Kategori Terbesar) */}
@@ -934,13 +920,6 @@ export const OperationalExpensesView: React.FC<OperationalExpensesViewProps> = R
           </div>
         </div>
       )}
-
-      {/* 8. SQL Viewer Modal (Untuk Setup Tabel Supabase) */}
-      <SqlViewerModal
-        isOpen={isSqlModalOpen}
-        onClose={() => setIsSqlModalOpen(false)}
-        initialTab="pengeluaran"
-      />
     </div>
   );
 });
