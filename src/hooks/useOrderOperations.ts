@@ -393,6 +393,7 @@ export function useOrderOperations({
       // Identifikasi item yang dihapus dari batch asal
       const submittedIds = new Set(itemsList.map((it: any) => it.id).filter(Boolean));
       const deletedIds = editingBatchOrders.filter((o) => o.id && !submittedIds.has(o.id)).map((o) => o.id);
+      const deletedOrders = orders.filter((o) => deletedIds.includes(o.id));
 
       // Pisahkan pesanan lama yang diupdate vs pesanan baru yang ditambah
       const existingOrdersToUpdate: OrderItem[] = [];
@@ -455,23 +456,37 @@ export function useOrderOperations({
         return newOrdersToAdd.length > 0 ? [...newOrdersToAdd, ...updated] : updated;
       });
 
-      const message = `Pesanan (${itemsList.length} item) berhasil diperbarui`;
-      showToast(message, 'edit');
-
       setIsLoadingDb(true);
       try {
         if (deletedIds.length > 0) {
-          await deleteOrdersFromDb(deletedIds);
+          const deleteResult = await deleteOrdersFromDb(deletedIds);
+          if (!deleteResult.success) {
+            setOrders((prev) => {
+              const currentIds = new Set(prev.map((o) => String(o.id)));
+              const restored = deletedOrders.filter((o) => !currentIds.has(String(o.id)));
+              return [...prev, ...restored];
+            });
+            throw new Error(deleteResult.error || 'Gagal menghapus item dari database');
+          }
         }
         for (const itm of existingOrdersToUpdate) {
-          await updateOrderInDb(itm.id, itm);
+          const updateResult = await updateOrderInDb(itm.id, itm);
+          if (!updateResult.success) {
+            throw new Error(updateResult.error || `Gagal memperbarui item ${itm.namaBarang}`);
+          }
         }
         if (newOrdersToAdd.length > 0) {
-          await saveOrdersBatchToDb(newOrdersToAdd);
+          const saveResult = await saveOrdersBatchToDb(newOrdersToAdd);
+          if (!saveResult.success) {
+            throw new Error(saveResult.error || 'Gagal menyimpan item baru');
+          }
         }
+        showToast(`Pesanan (${itemsList.length} item) berhasil diperbarui`, 'edit');
       } catch (err: any) {
         console.error('[handleSaveOrder batch edit error]:', err);
-        setDbError(err?.message || 'Gagal menyimpan pembaruan ke database');
+        const errorMessage = err?.message || 'Gagal menyimpan pembaruan ke database';
+        setDbError(errorMessage);
+        showToast(`Gagal menyimpan perubahan: ${errorMessage}`, 'error');
       } finally {
         setIsLoadingDb(false);
       }
@@ -609,7 +624,7 @@ export function useOrderOperations({
       setDbError(lastError);
       showToast(`${newOrdersAdded.length} pesanan tersimpan di HP. Error sync: ${lastError}`, 'info');
     }
-  }, [orders, masterToko, masterPemasok, masterDapur, setOrders, setSelectedDate, setIsLoadingDb, setInvoices, showToast, setDbError]);
+  }, [orders, editingOrder, editingBatchOrders, masterToko, masterPemasok, masterDapur, setOrders, setSelectedDate, setIsLoadingDb, setInvoices, showToast, setDbError]);
 
   const handleDeleteOrder = useCallback((id: string) => {
     const targetOrder = orders.find((o) => o.id === id);

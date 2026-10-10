@@ -37,7 +37,7 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
   orders,
   stores = [],
   pemasokList = [],
-  onUpdatePaymentStatus,
+  onUpdateGroupPaymentStatus,
 }) => {
   // Filter States
   const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>('all');
@@ -64,6 +64,33 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
     return item.status === 'selesai' ? 'PAID' : 'UNPAID';
   }, []);
 
+  // A supplier's balance is paid per nota and supplier, not per line item.
+  // Legacy rows without a nota ID use the same transaction fallback used elsewhere.
+  const getPaymentGroupKey = useCallback((item: OrderItem) => {
+    const notaId = item.notaId || item.nota_id;
+    const supplier = (item.pemasok || '').trim().toLocaleLowerCase();
+    const notaKey = notaId
+      ? `nota:${String(notaId).trim().toLocaleLowerCase()}`
+      : `transaksi:${item.tanggal || item.createdAt || item.created_at || ''}|${item.tujuanDapur || (item as any).dapur || ''}|${item.toko || ''}`;
+    return `${notaKey}|pemasok:${supplier}`;
+  }, []);
+
+  const paymentGroups = useMemo(() => {
+    const groups = new Map<string, OrderItem[]>();
+    orders.forEach((item) => {
+      const key = getPaymentGroupKey(item);
+      const group = groups.get(key);
+      if (group) group.push(item);
+      else groups.set(key, [item]);
+    });
+    return groups;
+  }, [orders, getPaymentGroupKey]);
+
+  const getGroupPayStatus = useCallback((item: OrderItem): PaymentStatus => {
+    const group = paymentGroups.get(getPaymentGroupKey(item)) || [item];
+    return group.every((groupItem) => getItemPayStatus(groupItem) === 'PAID') ? 'PAID' : 'UNPAID';
+  }, [paymentGroups, getPaymentGroupKey, getItemPayStatus]);
+
   // Filter orders according to date, store, supplier, status, and search
   const filteredOrders = useMemo(() => {
     return orders.filter((item) => {
@@ -88,7 +115,7 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
       }
 
       // 4. Filter Status (PAID vs UNPAID)
-      const payStatus = getItemPayStatus(item);
+      const payStatus = getGroupPayStatus(item);
       if (statusFilter !== 'all' && payStatus !== statusFilter) {
         return false;
       }
@@ -114,6 +141,7 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
     statusFilter,
     searchQuery,
     getItemPayStatus,
+    getGroupPayStatus,
   ]);
 
   // Reset pagination saat filter berubah
@@ -145,20 +173,30 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
       return true;
     });
 
+    const metricGroups = new Map<string, OrderItem[]>();
     baseOrders.forEach((item) => {
-      const rawQtyJual = parseIndonesianNumber(item.qty) || 0;
-      const returQty = Math.min(rawQtyJual, Math.max(0, Number(item.retur) || 0));
-      const rawQtyBeli = item.qtyBeli !== undefined && item.qtyBeli !== null
-        ? parseIndonesianNumber(item.qtyBeli)
-        : (item.qty_beli !== undefined && item.qty_beli !== null
-            ? parseIndonesianNumber(item.qty_beli)
-            : rawQtyJual);
-      const finalQtyBeli = Math.max(0, rawQtyBeli - returQty);
-      const hBeli = parseIndonesianNumber(item.hargaBeli) || 0;
-      const subtotalBeli = finalQtyBeli * hBeli;
+      const key = getPaymentGroupKey(item);
+      const group = metricGroups.get(key);
+      if (group) group.push(item);
+      else metricGroups.set(key, [item]);
+    });
+
+    metricGroups.forEach((group) => {
+      const payStatus = getGroupPayStatus(group[0]);
+      const subtotalBeli = group.reduce((total, item) => {
+        const rawQtyJual = parseIndonesianNumber(item.qty) || 0;
+        const returQty = Math.min(rawQtyJual, Math.max(0, Number(item.retur) || 0));
+        const rawQtyBeli = item.qtyBeli !== undefined && item.qtyBeli !== null
+          ? parseIndonesianNumber(item.qtyBeli)
+          : (item.qty_beli !== undefined && item.qty_beli !== null
+              ? parseIndonesianNumber(item.qty_beli)
+              : rawQtyJual);
+        const finalQtyBeli = Math.max(0, rawQtyBeli - returQty);
+        const hBeli = parseIndonesianNumber(item.hargaBeli) || 0;
+        return total + finalQtyBeli * hBeli;
+      }, 0);
 
       totalBeliSemua += subtotalBeli;
-      const payStatus = getItemPayStatus(item);
       if (payStatus === 'PAID') {
         totalBeliPaid += subtotalBeli;
         countPaid++;
@@ -176,7 +214,7 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
       countUnpaid,
       totalCount: baseOrders.length,
     };
-  }, [orders, dateFilter, selectedStoreFilter, getItemPayStatus]);
+  }, [orders, dateFilter, selectedStoreFilter, getPaymentGroupKey, getItemPayStatus, getGroupPayStatus]);
 
   // Totals dari item yang sedang terfilter di tabel
   const tableSummary = useMemo(() => {
@@ -200,21 +238,32 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
     return { totalQty, totalBeli };
   }, [filteredOrders]);
 
-  // Pagination slice
-  const totalPages = Math.ceil(filteredOrders.length / pageSize) || 1;
-  const paginatedOrders = useMemo(() => {
+  // Tampilan dan pagination memakai satu baris status per nota-pemasok.
+  const filteredPaymentGroups = useMemo(() => {
+    const groups = new Map<string, OrderItem[]>();
+    filteredOrders.forEach((item) => {
+      const key = getPaymentGroupKey(item);
+      const group = groups.get(key);
+      if (group) group.push(item);
+      else groups.set(key, [item]);
+    });
+    return Array.from(groups.values());
+  }, [filteredOrders, getPaymentGroupKey]);
+
+  const totalPages = Math.ceil(filteredPaymentGroups.length / pageSize) || 1;
+  const paginatedGroups = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredOrders.slice(start, start + pageSize);
-  }, [filteredOrders, currentPage, pageSize]);
+    return filteredPaymentGroups.slice(start, start + pageSize);
+  }, [filteredPaymentGroups, currentPage, pageSize]);
 
   // Toggle handler status bayar ke pemasok
   const handleTogglePayment = useCallback((item: OrderItem) => {
-    const currentPay = getItemPayStatus(item);
+    const currentPay = getGroupPayStatus(item);
     const nextPay: PaymentStatus = currentPay === 'PAID' ? 'UNPAID' : 'PAID';
-    if (onUpdatePaymentStatus) {
-      onUpdatePaymentStatus(item.id, nextPay);
+    if (onUpdateGroupPaymentStatus) {
+      onUpdateGroupPaymentStatus(paymentGroups.get(getPaymentGroupKey(item)) || [item], nextPay);
     }
-  }, [getItemPayStatus, onUpdatePaymentStatus]);
+  }, [getGroupPayStatus, getPaymentGroupKey, paymentGroups, onUpdateGroupPaymentStatus]);
 
   return (
     <div className="space-y-4 pt-1 pb-36 sm:pb-24 font-sans text-slate-800 dark:text-slate-200 transition-colors">
@@ -443,22 +492,16 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
             </colgroup>
             <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-2xs">
               <tr className="text-[10px] sm:text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                {/* 1. PEMASOK */}
                 <th className="py-3 px-3">PEMASOK</th>
-                {/* 2. ITEM */}
                 <th className="py-3 px-3">ITEM</th>
-                {/* 3. QTY */}
                 <th className="py-3 px-2 text-center">QTY</th>
-                {/* 4. HARGA */}
                 <th className="py-3 px-3 text-right">HARGA</th>
-                {/* 5. TOTAL BELI */}
                 <th className="py-3 px-3 text-right">TOTAL BELI</th>
-                {/* 6. STATUS PAID / UNPAID */}
                 <th className="py-3 px-2 text-center">STATUS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900">
-              {paginatedOrders.length === 0 ? (
+              {paginatedGroups.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 px-4 text-center text-slate-400 dark:text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
@@ -475,53 +518,44 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
                   </td>
                 </tr>
               ) : (
-                paginatedOrders.map((item) => {
-                  const rawQtyJual = parseIndonesianNumber(item.qty) || 0;
-                  const returQty = Math.min(rawQtyJual, Math.max(0, Number(item.retur) || 0));
-                  const finalQtyJual = Math.max(0, rawQtyJual - returQty);
-
-                  const rawQtyBeli = item.qtyBeli !== undefined && item.qtyBeli !== null
-                    ? parseIndonesianNumber(item.qtyBeli)
-                    : (item.qty_beli !== undefined && item.qty_beli !== null
-                        ? parseIndonesianNumber(item.qty_beli)
-                        : rawQtyJual);
-                  const finalQtyBeli = Math.max(0, rawQtyBeli - returQty);
-
-                  const hargaBeli = parseIndonesianNumber(item.hargaBeli) || 0;
-                  const subtotalBeli = finalQtyBeli * hargaBeli;
-                  const payStatus = getItemPayStatus(item);
+                paginatedGroups.map((groupItems) => {
+                  const firstItem = groupItems[0];
+                  const payStatus = getGroupPayStatus(firstItem);
                   const isPaid = payStatus === 'PAID';
+                  const notaLabel = firstItem.invoiceNumber || firstItem.invoice_number || firstItem.notaId || firstItem.nota_id;
 
-                  return (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-slate-50/90 dark:hover:bg-slate-800/50 transition-colors"
-                    >
-                      {/* 1. KOLOM PEMASOK */}
-                      <td className="py-3 px-3 align-middle">
+                  return groupItems.map((item, groupItemIndex) => {
+                    const rawQtyJual = parseIndonesianNumber(item.qty) || 0;
+                    const returQty = Math.min(rawQtyJual, Math.max(0, Number(item.retur) || 0));
+                    const rawQtyBeli = item.qtyBeli !== undefined && item.qtyBeli !== null
+                      ? parseIndonesianNumber(item.qtyBeli)
+                      : (item.qty_beli !== undefined && item.qty_beli !== null
+                          ? parseIndonesianNumber(item.qty_beli)
+                          : rawQtyJual);
+                    const finalQtyBeli = Math.max(0, rawQtyBeli - returQty);
+                    const hargaBeli = parseIndonesianNumber(item.hargaBeli) || 0;
+                    const subtotalBeli = finalQtyBeli * hargaBeli;
+
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50/90 dark:hover:bg-slate-800/50 transition-colors">
+                      {groupItemIndex === 0 && <td rowSpan={groupItems.length} className="py-3 px-3 align-middle border-r border-slate-100 dark:border-slate-800">
                         <div className="flex flex-col gap-0.5 min-w-0">
-                          <span className="font-extrabold text-slate-900 dark:text-slate-100 text-xs leading-snug break-words">
-                            {item.pemasok || '-'}
-                          </span>
+                          <span className="font-extrabold text-slate-900 dark:text-slate-100 text-xs leading-snug break-words">{firstItem.pemasok || '-'}</span>
                           <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
-                            {item.tanggal && (
-                              <span className="font-bold font-mono text-slate-700 dark:text-slate-300">
-                                {formatTanggalDisatuin(item.tanggal)}
-                              </span>
-                            )}
-                            {(item.tujuanDapur || (item as any).dapur) && (
+                            {firstItem.tanggal && <span className="font-bold font-mono text-slate-700 dark:text-slate-300">{formatTanggalDisatuin(firstItem.tanggal)}</span>}
+                            {(firstItem.tujuanDapur || (firstItem as any).dapur) && (
                               <span className="font-bold text-purple-700 dark:text-purple-400">
-                                · {(item.tujuanDapur || (item as any).dapur).toLowerCase().startsWith('dapur')
-                                  ? (item.tujuanDapur || (item as any).dapur)
-                                  : `Dapur ${item.tujuanDapur || (item as any).dapur}`}
+                                · {(firstItem.tujuanDapur || (firstItem as any).dapur).toLowerCase().startsWith('dapur')
+                                  ? (firstItem.tujuanDapur || (firstItem as any).dapur)
+                                  : `Dapur ${firstItem.tujuanDapur || (firstItem as any).dapur}`}
                               </span>
                             )}
                           </div>
+                          {notaLabel && <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono break-all">Nota {notaLabel}</span>}
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400">{groupItems.length} item</span>
                         </div>
-                      </td>
-
-                      {/* 2. KOLOM ITEM (Nama item di atas, di bawahnya CATATAN DARI TRANSAKSI KALAU ADA) */}
-                      <td className="py-3 px-3 align-middle">
+                      </td>}
+                      <td className="py-2.5 px-3 align-middle">
                         <div className="flex flex-col gap-0.5 min-w-0">
                           <span className="font-black text-slate-900 dark:text-slate-100 text-xs leading-snug break-words">
                             {item.namaBarang}
@@ -536,58 +570,43 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
                         </div>
                       </td>
 
-                      {/* 3. KOLOM QTY (KUANTITAS BARANG) */}
-                      <td className="py-3 px-2 text-center align-middle whitespace-nowrap">
+                      <td className="py-2.5 px-2 text-center align-middle whitespace-nowrap">
                         <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold font-nominal text-xs text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
                           {finalQtyBeli} {item.satuan || ''}
                         </span>
                       </td>
 
-                      {/* 4. KOLOM HARGA (HARGA SATUAN BELI) */}
-                      <td className="py-3 px-3 text-right align-middle whitespace-nowrap">
+                      <td className="py-2.5 px-3 text-right align-middle whitespace-nowrap">
                         <span className="font-semibold text-slate-700 dark:text-slate-300 font-nominal text-xs">
                           {formatRupiah(hargaBeli)}
                         </span>
                       </td>
 
-                      {/* 5. KOLOM TOTAL BELI */}
-                      <td className="py-3 px-3 text-right align-middle whitespace-nowrap">
+                      <td className="py-2.5 px-3 text-right align-middle whitespace-nowrap">
                         <span className="font-black text-slate-900 dark:text-slate-100 font-nominal text-xs sm:text-[13px]">
                           {formatRupiah(subtotalBeli)}
                         </span>
                       </td>
 
-                      {/* 6. KOLOM STATUS PAID / UNPAID (TOGGLE 1-KLIK) */}
-                      <td className="py-3 px-2 text-center align-middle whitespace-nowrap">
+                      {groupItemIndex === 0 && <td rowSpan={groupItems.length} className="py-3 px-2 text-center align-middle whitespace-nowrap border-l border-slate-100 dark:border-slate-800">
                         <button
                           type="button"
-                          onClick={() => handleTogglePayment(item)}
+                          onClick={() => handleTogglePayment(firstItem)}
                           className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black border transition-all active:scale-95 cursor-pointer min-h-[32px] ${
                             isPaid
                               ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 shadow-2xs'
                               : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700 hover:bg-rose-100 shadow-2xs'
                           }`}
-                          title={
-                            isPaid
-                              ? 'Status LUNAS ke pemasok (Klik untuk ubah ke UNPAID)'
-                              : 'Status BELUM DIBAYAR ke pemasok (Klik untuk ubah ke PAID)'
-                          }
+                          title={isPaid
+                            ? 'Status nota ke pemasok ini LUNAS. Klik untuk ubah semua item pemasok pada nota menjadi UNPAID.'
+                            : 'Status nota ke pemasok ini BELUM DIBAYAR. Klik untuk ubah semua item pemasok pada nota menjadi PAID.'}
                         >
-                          {isPaid ? (
-                            <>
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                              <span>PAID</span>
-                            </>
-                          ) : (
-                            <>
-                              <Clock className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-                              <span>UNPAID</span>
-                            </>
-                          )}
+                          {isPaid ? <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /><span>PAID</span></> : <><Clock className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" /><span>UNPAID</span></>}
                         </button>
-                      </td>
+                      </td>}
                     </tr>
-                  );
+                    );
+                  });
                 })
               )}
             </tbody>
@@ -596,20 +615,14 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
               <tfoot className="sticky bottom-0 z-10 bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-slate-700 shadow-2xs">
                 <tr className="text-slate-900 dark:text-slate-100 text-xs font-bold">
                   <td colSpan={2} className="py-3 px-3 uppercase tracking-wider font-extrabold text-[11px] truncate">
-                    TOTAL ({filteredOrders.length} Barang Terfilter) :
+                    TOTAL ({filteredOrders.length} Item · {filteredPaymentGroups.length} Nota/Pemasok) :
                   </td>
-                  <td className="py-3 px-2 text-center font-black font-nominal text-xs">
-                    {tableSummary.totalQty}
-                  </td>
-                  <td className="py-3 px-3 text-right text-slate-400 dark:text-slate-500 font-medium text-[10px]">
-                    -
-                  </td>
+                  <td className="py-3 px-2 text-center font-black font-nominal text-xs">{tableSummary.totalQty}</td>
+                  <td className="py-3 px-3 text-right text-slate-400 dark:text-slate-500 font-medium text-[10px]">-</td>
                   <td className="py-3 px-3 text-right font-black font-nominal text-xs sm:text-[13px] text-slate-900 dark:text-slate-100 whitespace-nowrap">
                     {formatRupiah(tableSummary.totalBeli)}
                   </td>
-                  <td className="py-3 px-2 text-center text-slate-400 dark:text-slate-500 font-medium text-[10px]">
-                    -
-                  </td>
+                  <td className="py-3 px-2 text-center text-slate-400 dark:text-slate-500 font-medium text-[10px]">-</td>
                 </tr>
               </tfoot>
             )}
@@ -617,19 +630,21 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
         </div>
 
         {/* Pagination Controls */}
-        {filteredOrders.length > 0 && (
+        {filteredPaymentGroups.length > 0 && (
           <div className="p-3 border-t border-slate-100 dark:border-slate-800">
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
               onPageChange={setCurrentPage}
-              totalItems={filteredOrders.length}
+              totalItems={filteredPaymentGroups.length}
               pageSize={pageSize}
               onPageSizeChange={(newSize) => {
                 setPageSize(newSize);
                 setCurrentPage(1);
               }}
               pageSizeOptions={PAGE_SIZE_OPTIONS}
+              itemLabel="nota/pemasok"
+              pageSizeLabel="nota"
             />
           </div>
         )}

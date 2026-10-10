@@ -9,6 +9,8 @@ interface PaginationProps {
   pageSize?: number;
   onPageSizeChange?: (pageSize: number) => void;
   pageSizeOptions?: number[];
+  itemLabel?: string;
+  pageSizeLabel?: string;
 }
 
 export const Pagination: React.FC<PaginationProps> = ({
@@ -19,6 +21,8 @@ export const Pagination: React.FC<PaginationProps> = ({
   pageSize,
   onPageSizeChange,
   pageSizeOptions,
+  itemLabel = 'data',
+  pageSizeLabel = 'baris',
 }) => {
   const safeTotalPages = Math.max(1, totalPages || 1);
   const safeCurrentPage = Math.min(Math.max(1, currentPage || 1), safeTotalPages);
@@ -58,7 +62,7 @@ export const Pagination: React.FC<PaginationProps> = ({
               -
               {Math.min(totalItems, safeCurrentPage * (pageSize || 10))}
             </strong>{' '}
-            dari <strong className="text-slate-900 dark:text-slate-100 font-bold">{totalItems}</strong> data
+            dari <strong className="text-slate-900 dark:text-slate-100 font-bold">{totalItems}</strong> {itemLabel}
             <span className="hidden xs:inline text-slate-400 dark:text-slate-600 mx-1.5">•</span>
             <span className="hidden xs:inline">
               Hal <strong className="text-slate-900 dark:text-slate-100 font-bold">{safeCurrentPage}</strong> / {safeTotalPages}
@@ -82,7 +86,7 @@ export const Pagination: React.FC<PaginationProps> = ({
             >
               {(pageSizeOptions && pageSizeOptions.length > 0 ? pageSizeOptions : [10, 15, 25, 50]).map((opt) => (
                 <option key={opt} value={opt}>
-                  {opt} baris
+                  {opt} {pageSizeLabel}
                 </option>
               ))}
             </select>
