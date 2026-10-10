@@ -142,9 +142,10 @@ describe('DriverDeliveryView - Halaman Khusus Pengiriman Driver', () => {
 
     const text = container.textContent || '';
     expect(text).not.toContain('DRIVER');
+    expect(text).not.toContain('Transaksi');
     expect(text).toContain('Dashboard');
-    expect(text).toContain('Transaksi');
     expect(text).toContain('PEMBELIAN');
+    expect(text).toContain('PENGELUARAN');
   });
 
   it('memastikan tombol akses ke halaman utama dihapus dan hanya mengambil data dengan delivery status DRIVER', async () => {

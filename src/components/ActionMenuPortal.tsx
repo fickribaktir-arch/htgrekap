@@ -30,7 +30,7 @@ export const ActionMenuPortal: React.FC<ActionMenuPortalProps> = ({
   isOpen,
   targetRect,
   onClose,
-  title = 'Transaksi',
+  title = 'Pesanan',
   batchNumber,
   items,
   onEdit,

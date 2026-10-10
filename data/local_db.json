@@ -681,8 +681,8 @@
       "seq": 1,
       "toko_id": "toko-htg",
       "nomor": "HTG/1/I/2027",
-      "dibuat_pada": "2026-10-09T14:42:35.199Z",
-      "diubah_pada": "2026-10-09T14:42:35.200Z"
+      "dibuat_pada": "2026-10-10T03:15:57.544Z",
+      "diubah_pada": "2026-10-10T03:15:57.544Z"
     },
     {
       "nota_id": "nota-B",
@@ -690,8 +690,8 @@
       "seq": 2,
       "toko_id": "toko-htg",
       "nomor": "HTG/2/X/2026",
-      "dibuat_pada": "2026-10-09T14:42:35.199Z",
-      "diubah_pada": "2026-10-09T14:42:35.199Z"
+      "dibuat_pada": "2026-10-10T03:15:57.544Z",
+      "diubah_pada": "2026-10-10T03:15:57.544Z"
     },
     {
       "nota_id": "nota-C",
@@ -699,14 +699,14 @@
       "seq": 3,
       "toko_id": "toko-htg",
       "nomor": "HTG/3/X/2026",
-      "dibuat_pada": "2026-10-09T14:42:35.200Z",
-      "diubah_pada": "2026-10-09T14:42:35.200Z"
+      "dibuat_pada": "2026-10-10T03:15:57.544Z",
+      "diubah_pada": "2026-10-10T03:15:57.544Z"
     }
   ],
   "invoice_number_log": [
     {
-      "id": "log-1791556955200-v7bxa",
-      "waktu": "2026-10-09T14:42:35.200Z",
+      "id": "log-1791602157544-e3uen",
+      "waktu": "2026-10-10T03:15:57.544Z",
       "user_info": "system",
       "nota_id": "nota-A",
       "nomor_lama": "HTG/1/X/2026",

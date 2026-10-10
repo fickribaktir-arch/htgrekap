@@ -187,7 +187,7 @@ describe('BottomNav Navigation Order & Label', () => {
     container.remove();
   });
 
-  it('memastikan Transaksi berada di sebelah kanan Dashboard dan nama navigasi PEMBELIAN', () => {
+  it('memastikan Transaksi tidak ada di navbar dan nama navigasi PEMBELIAN', () => {
     const handleChangeTab = vi.fn();
     const handleOpenManual = vi.fn();
 
@@ -205,14 +205,17 @@ describe('BottomNav Navigation Order & Label', () => {
     const buttonTexts = buttons.map((b) => b.textContent?.trim()).filter(Boolean);
 
     // Verifikasi urutan tombol:
-    // Dashboard pertama, kemudian Transaksi di sebelah kanannya, lalu tombol plus, lalu PEMBELIAN
+    // Dashboard di sebelah kiri, lalu tombol plus di tengah, lalu PEMBELIAN dan PENGELUARAN di sebelah kanan
     const dashboardIndex = buttonTexts.findIndex((t) => t?.includes('Dashboard'));
-    const transaksiIndex = buttonTexts.findIndex((t) => t?.includes('Transaksi'));
     const pembelianIndex = buttonTexts.findIndex((t) => t?.includes('PEMBELIAN'));
+    const pengeluaranIndex = buttonTexts.findIndex((t) => t?.includes('PENGELUARAN'));
 
     expect(dashboardIndex).toBeGreaterThanOrEqual(0);
-    expect(transaksiIndex).toBeGreaterThan(dashboardIndex); // Transaksi di sebelah kanan navigasi dashboard
-    expect(pembelianIndex).toBeGreaterThan(transaksiIndex); // PEMBELIAN ada di grup kanan
+    expect(pembelianIndex).toBeGreaterThan(dashboardIndex); // PEMBELIAN ada di grup kanan
+    expect(pengeluaranIndex).toBeGreaterThan(pembelianIndex); // PENGELUARAN di kanan PEMBELIAN
+
+    // Transaksi telah dihapus dari navbar
+    expect(container.textContent).not.toContain('Transaksi');
 
     // Verifikasi teks tombol adalah PEMBELIAN bukan Pemasok
     expect(container.textContent).toContain('PEMBELIAN');

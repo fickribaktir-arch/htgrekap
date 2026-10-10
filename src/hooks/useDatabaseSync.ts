@@ -130,7 +130,6 @@ export function useDatabaseSync({
 
     let unsubscribePesanan: (() => void) | undefined;
     let unsubscribeNotes: (() => void) | undefined;
-    let unsubscribeTransaksi: (() => void) | undefined;
     let unsubscribePengeluaran: (() => void) | undefined;
 
     const setupRealtime = async () => {
@@ -146,11 +145,6 @@ export function useDatabaseSync({
             loadDatabaseData(false);
           });
           unsubscribePengeluaran = await subscribeToTableChanges('pengeluaran_operasional', () => {
-            loadDatabaseData(false);
-          });
-        } else if (activeTab === 'transaksi') {
-          unsubscribeTransaksi = await subscribeToTableChanges('transaksi', () => {
-            invalidateCache('transaksi');
             loadDatabaseData(false);
           });
         } else if (activeTab === 'pengeluaran') {
@@ -171,7 +165,6 @@ export function useDatabaseSync({
       document.removeEventListener('visibilitychange', handleVisibility);
       if (unsubscribePesanan) unsubscribePesanan();
       if (unsubscribeNotes) unsubscribeNotes();
-      if (unsubscribeTransaksi) unsubscribeTransaksi();
       if (unsubscribePengeluaran) unsubscribePengeluaran();
     };
   }, [activeTab, loadDatabaseData, showToast]);

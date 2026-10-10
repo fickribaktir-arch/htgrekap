@@ -13,7 +13,7 @@ import {
   FileText
 } from 'lucide-react';
 import { OrderItem, PaymentStatus, DeliveryStatus, InvoicePriceVariant } from '../types';
-import { formatRupiah, formatTanggalDisatuin, getTokoBadgeStyle, parseIndonesianNumber, formatJam } from '../lib/formatters';
+import { formatRupiah, formatTanggalDisatuin, parseIndonesianNumber, formatJam } from '../lib/formatters';
 import { motion, AnimatePresence } from 'motion/react';
 import { Pagination } from './Pagination';
 import { TableSkeleton } from './TableSkeleton';
@@ -100,7 +100,7 @@ const OrderRow: React.FC<OrderRowProps> = React.memo(({
         isLastInGroup ? 'border-b-2 border-slate-200 dark:border-slate-700' : 'border-b border-slate-100 dark:border-slate-800'
       }`}
     >
-      {/* 1. NO (MERGED PER GROUP) */}
+      {/* 0. NO (MERGED PER GROUP) */}
       {isFirst && (
         <td
           rowSpan={rowSpan}
@@ -110,58 +110,41 @@ const OrderRow: React.FC<OrderRowProps> = React.memo(({
         </td>
       )}
 
-      {/* 2. DAPUR (MERGED PER GROUP) */}
+      {/* 1. DAPUR (MERGED PER GROUP: NAMA DAPUR, NOMOR INVOICE, TANGGAL & JAM) */}
       {isFirst && (
         <td
           rowSpan={rowSpan}
-          className="py-2.5 px-1 text-center align-middle border-r border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40"
+          className="py-2.5 px-1.5 text-center align-middle border-r border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40"
         >
-          <span className="inline-block max-w-full break-words bg-indigo-50 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-300 font-extrabold px-1.5 py-0.5 rounded text-[10px] leading-tight border border-indigo-200 dark:border-indigo-800 shadow-2xs">
-            {group.tujuanDapur}
-          </span>
-          {(group.items[0]?.invoiceNumber || (group.items[0] as any)?.invoice_number) && (
-            <div className="mt-1 font-mono text-[9.5px] font-bold text-slate-500 dark:text-slate-400 select-all tracking-tight" title="Nomor Invoice">
-              {group.items[0]?.invoiceNumber || (group.items[0] as any)?.invoice_number}
-            </div>
-          )}
-        </td>
-      )}
-
-      {/* 3. ITEM (PER ROW ITEM) */}
-      <td className="py-2.5 px-2 align-middle min-w-0">
-        <div className="font-bold break-words text-slate-900 dark:text-slate-100 text-xs leading-snug">
-          {item.namaBarang}
-        </div>
-      </td>
-
-      {/* 3.5. PEMASOK (PER ROW ITEM - Mengikuti masing-masing barang) */}
-      <td className="py-2.5 px-1 text-center align-middle border-r border-slate-100 dark:border-slate-800">
-        <span className="inline-flex max-w-full items-center gap-0.5 font-extrabold text-[10px] px-1.5 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-2xs" title={item.pemasok || 'Pemasok belum ada'}>
-          <Truck className="w-3 h-3 text-blue-600 dark:text-blue-400 shrink-0" />
-          <span className="min-w-0 truncate">{item.pemasok || '-'}</span>
-        </span>
-      </td>
-
-      {/* 4. DATE (MERGED PER GROUP WITH DAY ON TOP) */}
-      {isFirst && (
-        <td
-          rowSpan={rowSpan}
-          className="py-2.5 px-1 text-center align-middle border-r border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40"
-        >
-          <div className="flex flex-col items-center justify-center gap-0.5 leading-none">
-            <span className="max-w-full whitespace-normal break-words font-bold text-slate-800 dark:text-slate-200 text-[10px] leading-tight bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200/80 dark:border-slate-700" title={formatTanggalDisatuin(group.tanggal)}>
-              {formatTanggalDisatuin(group.tanggal)}
+          <div className="flex flex-col items-center justify-center gap-1 leading-tight">
+            {/* 1.1. NAMA DAPUR */}
+            <span className="inline-block max-w-full break-words bg-indigo-50 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-300 font-extrabold px-1.5 py-0.5 rounded text-[10px] leading-tight border border-indigo-200 dark:border-indigo-800 shadow-2xs">
+              {group.tujuanDapur}
             </span>
-            {(group.createdAt || group.items[0]?.createdAt) && formatJam(group.createdAt || group.items[0]?.createdAt) ? (
-              <span className="text-[9.5px] font-mono text-slate-500 dark:text-slate-400 font-medium tracking-tight">
-                {formatJam(group.createdAt || group.items[0]?.createdAt)}
+
+            {/* 1.2. NOMOR INVOICE */}
+            {(group.items[0]?.invoiceNumber || (group.items[0] as any)?.invoice_number) && (
+              <div className="font-mono text-[9px] font-bold text-slate-500 dark:text-slate-400 select-all tracking-tight" title="Nomor Invoice">
+                {group.items[0]?.invoiceNumber || (group.items[0] as any)?.invoice_number}
+              </div>
+            )}
+
+            {/* 1.3. TANGGAL & JAM */}
+            <div className="flex flex-col items-center justify-center gap-0.5 leading-none mt-0.5">
+              <span className="max-w-full whitespace-normal break-words font-semibold text-slate-700 dark:text-slate-300 text-[9.5px] leading-tight bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200/80 dark:border-slate-700" title={formatTanggalDisatuin(group.tanggal)}>
+                {formatTanggalDisatuin(group.tanggal)}
               </span>
-            ) : null}
+              {(group.createdAt || group.items[0]?.createdAt) && formatJam(group.createdAt || group.items[0]?.createdAt) ? (
+                <span className="text-[9px] font-mono text-slate-400 dark:text-slate-500 font-medium tracking-tight">
+                  {formatJam(group.createdAt || group.items[0]?.createdAt)}
+                </span>
+              ) : null}
+            </div>
           </div>
         </td>
       )}
 
-      {/* 5. QTY (PER ROW ITEM) */}
+      {/* 2. QTY (PER ROW ITEM) */}
       <td className="py-2.5 px-2 text-center align-middle border-r border-slate-100 dark:border-slate-800">
         {Number(item.retur) > 0 ? (
           <div className="flex flex-col items-center justify-center gap-0.5">
@@ -183,30 +166,139 @@ const OrderRow: React.FC<OrderRowProps> = React.memo(({
         )}
       </td>
 
-      {/* 6. TOKO (MERGED PER GROUP) */}
-      {isFirst && (
-        <td
-          rowSpan={rowSpan}
-          className="py-2.5 px-1 text-center align-middle border-r border-slate-100 dark:border-slate-800"
-        >
-          {(() => {
-            const STORE_MAP: Record<string, string> = {
-              '1': 'LB / Luweng Boga',
-              '2': 'HTG',
-              '3': 'LA / Lumbung Adifruta',
-              '4': 'PW / Prohe',
-            };
-            const tokoName = STORE_MAP[group.toko] || group.toko;
-            return (
-              <span className={`inline-block max-w-full break-words px-1.5 py-0.5 rounded text-[10px] leading-tight font-bold border ${getTokoBadgeStyle(tokoName)}`}>
-                {tokoName}
-              </span>
-            );
-          })()}
-        </td>
-      )}
+      {/* 3. ITEM (PER ROW ITEM: NAMA BARANG DENGAN LABEL PEMASOK) */}
+      <td className="py-2.5 px-2 align-middle min-w-0 border-r border-slate-100 dark:border-slate-800">
+        <div className="font-bold break-words text-slate-900 dark:text-slate-100 text-xs leading-snug">
+          {item.namaBarang}
+        </div>
+        <div className="mt-1">
+          <span className="inline-flex max-w-full items-center gap-0.5 font-extrabold text-[9.5px] px-1.5 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-2xs" title={item.pemasok || 'Pemasok belum ada'}>
+            <Truck className="w-3 h-3 text-blue-600 dark:text-blue-400 shrink-0" />
+            <span className="min-w-0 truncate">{item.pemasok || '-'}</span>
+          </span>
+        </div>
+      </td>
 
-      {/* 7. PAYMENT (MERGED PER GROUP WITH 1-CLICK TOGGLE) */}
+      {/* 4. JUAL (PER ROW ITEM) */}
+      {(() => {
+        const rawQty = parseIndonesianNumber(item.qty) || 0;
+        const returQty = Math.min(rawQty, Math.max(0, Number(item.retur) || 0));
+        const finalQty = Math.max(0, rawQty - returQty);
+        const hjNum = parseIndonesianNumber(item.hargaJual) || 0;
+        const totalJual = finalQty * hjNum;
+
+        return (
+          <td className="py-2.5 px-1.5 text-right whitespace-nowrap align-middle border-r border-slate-100 dark:border-slate-800">
+            <div className="font-bold text-slate-900 dark:text-slate-100 font-nominal text-xs sm:text-[12.5px]">
+              {formatRupiah(totalJual)}
+            </div>
+            <div className="text-[10px] text-slate-400 dark:text-slate-500 font-nominal">
+              @{formatRupiah(hjNum)}
+            </div>
+          </td>
+        );
+      })()}
+
+      {/* 5. BELI (PER ROW ITEM) */}
+      {(() => {
+        const rawQtyJual = parseIndonesianNumber(item.qty) || 0;
+        const rawQtyBeli = item.qtyBeli !== undefined && item.qtyBeli !== null
+          ? parseIndonesianNumber(item.qtyBeli)
+          : (item.qty_beli !== undefined && item.qty_beli !== null ? parseIndonesianNumber(item.qty_beli) : rawQtyJual);
+        const returQty = Math.max(0, Number(item.retur) || 0);
+        const qtyBeliEfektif = Math.max(0, rawQtyBeli - returQty);
+        const hbNum = parseIndonesianNumber(item.hargaBeli) || 0;
+        const totalBeli = qtyBeliEfektif * hbNum;
+
+        return (
+          <td className="py-2.5 px-1.5 text-right whitespace-nowrap align-middle border-r border-slate-100 dark:border-slate-800">
+            <div className="font-semibold text-slate-600 dark:text-slate-300 font-nominal text-xs sm:text-[12.5px]">
+              {formatRupiah(totalBeli)}
+            </div>
+            <div className="text-[10px] text-slate-400 dark:text-slate-500 font-nominal">
+              @{formatRupiah(hbNum)}
+            </div>
+          </td>
+        );
+      })()}
+
+      {/* 6. LABA (PER ROW ITEM - RUMUS KARTU RINGKASAN: src/lib/orderValidation.ts baris 210 & HeaderBanner.tsx baris 347) */}
+      {(() => {
+        const rawQtyJual = parseIndonesianNumber(item.qty) || 0;
+        const rawQtyBeli = item.qtyBeli !== undefined && item.qtyBeli !== null
+          ? parseIndonesianNumber(item.qtyBeli)
+          : (item.qty_beli !== undefined && item.qty_beli !== null ? parseIndonesianNumber(item.qty_beli) : rawQtyJual);
+        const returQty = Math.max(0, Number(item.retur) || 0);
+        const finalQty = Math.max(0, rawQtyJual - returQty);
+        const qtyBeliEfektif = Math.max(0, rawQtyBeli - returQty);
+        const hbNum = parseIndonesianNumber(item.hargaBeli) || 0;
+        const hjNum = parseIndonesianNumber(item.hargaJual) || 0;
+        const cbNum = parseIndonesianNumber(item.cashback) || 0;
+
+        const totalJual = finalQty * hjNum;
+        const totalBeli = qtyBeliEfektif * hbNum;
+        // Rumus laba baris item dari aplikasi:
+        // labaItem = cb > 0 ? ((cb - beli) * qtyFinal) : (totalJual - totalBeli)
+        const itemLaba = cbNum > 0 ? ((cbNum - hbNum) * finalQty) : (totalJual - totalBeli);
+
+        return (
+          <td className="py-2.5 px-1.5 text-right whitespace-nowrap align-middle border-r border-slate-100 dark:border-slate-800">
+            <div className={`font-bold font-nominal text-xs sm:text-[12.5px] ${
+              itemLaba > 0
+                ? 'text-emerald-700 dark:text-emerald-400'
+                : itemLaba < 0
+                ? 'text-rose-600 dark:text-rose-400'
+                : 'text-slate-600 dark:text-slate-400'
+            }`}>
+              {itemLaba < 0 ? `-${formatRupiah(Math.abs(itemLaba))}` : formatRupiah(itemLaba)}
+            </div>
+            {finalQty > 0 && (
+              <div className={`text-[10px] font-nominal ${
+                itemLaba > 0
+                  ? 'text-emerald-600/80 dark:text-emerald-400/80'
+                  : itemLaba < 0
+                  ? 'text-rose-500/80 dark:text-rose-400/80'
+                  : 'text-slate-400 dark:text-slate-500'
+              }`}>
+                @{formatRupiah(Math.round(itemLaba / finalQty))}
+              </div>
+            )}
+          </td>
+        );
+      })()}
+
+      {/* 7. CB (PER ROW ITEM) */}
+      {(() => {
+        const totalCashback = getKeKoperasi(item);
+        return (
+          <td className="py-2.5 px-1.5 text-right whitespace-nowrap align-middle border-r border-slate-100 dark:border-slate-800">
+            {totalCashback > 0 ? (
+              <span className="inline-block text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-200/90 dark:border-amber-800 font-bold font-nominal text-xs">
+                +{formatRupiah(totalCashback)}
+              </span>
+            ) : (
+              <span className="text-slate-300 dark:text-slate-600 font-medium block text-center">-</span>
+            )}
+          </td>
+        );
+      })()}
+
+      {/* 8. CATATAN (PER ROW ITEM) */}
+      <td className="py-2.5 px-2 text-left align-middle border-r border-slate-100 dark:border-slate-800 min-w-0">
+        {item.catatan?.trim() ? (
+          <span
+            className="inline-flex max-w-full items-center gap-1 text-[11px] text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-medium align-middle"
+            title={item.catatan.trim()}
+          >
+            <FileText className="w-3 h-3 text-slate-400 shrink-0" />
+            <span className="truncate">{item.catatan.trim()}</span>
+          </span>
+        ) : (
+          <span className="text-slate-300 dark:text-slate-600 font-medium text-center block">-</span>
+        )}
+      </td>
+
+      {/* 9. PAYMENT (MERGED PER GROUP WITH 1-CLICK TOGGLE) */}
       {isFirst && (
         <td
           rowSpan={rowSpan}
@@ -230,7 +322,7 @@ const OrderRow: React.FC<OrderRowProps> = React.memo(({
         </td>
       )}
 
-      {/* 8. DILEVERY (MERGED PER GROUP WITH 1-CLICK TOGGLE) */}
+      {/* 10. DELIVERY (MERGED PER GROUP WITH 1-CLICK TOGGLE) */}
       {isFirst && (
         <td
           rowSpan={rowSpan}
@@ -262,81 +354,7 @@ const OrderRow: React.FC<OrderRowProps> = React.memo(({
         </td>
       )}
 
-      {/* 9. H. JUAL (PER ROW ITEM) */}
-      {(() => {
-        const rawQty = parseIndonesianNumber(item.qty) || 0;
-        const returQty = Math.min(rawQty, Math.max(0, Number(item.retur) || 0));
-        const finalQty = Math.max(0, rawQty - returQty);
-        const hjNum = parseIndonesianNumber(item.hargaJual) || 0;
-        const totalJual = finalQty * hjNum;
-
-        return (
-          <td className="py-2.5 px-1.5 text-right whitespace-nowrap align-middle">
-            <div className="font-bold text-slate-900 dark:text-slate-100 font-nominal text-xs sm:text-[12.5px]">
-              {formatRupiah(totalJual)}
-            </div>
-            <div className="text-[10px] text-slate-400 dark:text-slate-500 font-nominal">
-              @{formatRupiah(hjNum)}
-            </div>
-          </td>
-        );
-      })()}
-
-      {/* 10. H. BELI (PER ROW ITEM) */}
-      {(() => {
-        const rawQtyJual = parseIndonesianNumber(item.qty) || 0;
-        const rawQtyBeli = item.qtyBeli !== undefined && item.qtyBeli !== null
-          ? parseIndonesianNumber(item.qtyBeli)
-          : (item.qty_beli !== undefined && item.qty_beli !== null ? parseIndonesianNumber(item.qty_beli) : rawQtyJual);
-        const returQty = Math.max(0, Number(item.retur) || 0);
-        const qtyBeliEfektif = Math.max(0, rawQtyBeli - returQty);
-        const hbNum = parseIndonesianNumber(item.hargaBeli) || 0;
-        const totalBeli = qtyBeliEfektif * hbNum;
-
-        return (
-          <td className="py-2.5 px-1.5 text-right whitespace-nowrap align-middle border-r border-slate-100 dark:border-slate-800">
-            <div className="font-semibold text-slate-600 dark:text-slate-300 font-nominal text-xs sm:text-[12.5px]">
-              {formatRupiah(totalBeli)}
-            </div>
-            <div className="text-[10px] text-slate-400 dark:text-slate-500 font-nominal">
-              @{formatRupiah(hbNum)}
-            </div>
-          </td>
-        );
-      })()}
-
-      {/* 11. CASHBACK (PER ROW ITEM) */}
-      {(() => {
-        const totalCashback = getKeKoperasi(item);
-        return (
-          <td className="py-2.5 px-1.5 text-right whitespace-nowrap align-middle border-r border-slate-100 dark:border-slate-800">
-            {totalCashback > 0 ? (
-              <span className="inline-block text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-200/90 dark:border-amber-800 font-bold font-nominal text-xs">
-                +{formatRupiah(totalCashback)}
-              </span>
-            ) : (
-              <span className="text-slate-300 dark:text-slate-600 font-medium block text-center">-</span>
-            )}
-          </td>
-        );
-      })()}
-
-      {/* 12. CATATAN (PER ROW ITEM) */}
-      <td className="py-2.5 px-2 text-left align-middle border-r border-slate-100 dark:border-slate-800 min-w-0">
-        {item.catatan?.trim() ? (
-          <span
-            className="inline-flex max-w-full items-center gap-1 text-[11px] text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-medium align-middle"
-            title={item.catatan.trim()}
-          >
-            <FileText className="w-3 h-3 text-slate-400 shrink-0" />
-            <span className="truncate">{item.catatan.trim()}</span>
-          </span>
-        ) : (
-          <span className="text-slate-300 dark:text-slate-600 font-medium text-center block">-</span>
-        )}
-      </td>
-
-      {/* 13. AKSI (MERGED PER GROUP) */}
+      {/* 11. AKSI (MERGED PER GROUP) */}
       {isFirst && (
         <td
           rowSpan={rowSpan}
@@ -642,74 +660,66 @@ export const OrdersTableView: React.FC<OrdersTableViewProps> = React.memo(({
       {/* 
         ========================================================================
         TABEL TRANSAKSI PESANAN
-        Struktur kolom: NO, DAPUR, ITEM, PEMASOK, DATE, QTY, TOKO, PAYMENT, DELIVERY, H. JUAL, H. BELI, CASHBACK, CATATAN, AKSI
+        Struktur kolom baru: NO, Dapur, Qty, Item, Jual, Beli, Laba, CB, Catatan, Payment, Delivery, Aksi
         ========================================================================
       */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden font-sans">
         <div className="overflow-x-auto w-full">
-          <table className="w-full min-w-[1300px] xl:min-w-0 table-fixed text-left border-collapse text-xs relative">
+          <table className="w-full min-w-[1250px] xl:min-w-0 table-fixed text-left border-collapse text-xs relative">
             <colgroup>
-              {[3, 7, 11, 8, 8, 4.5, 7.5, 7, 7, 8.5, 8.5, 7.5, 13.5, 7].map((width, index) => (
+              {[3, 11, 5, 15, 8.5, 8.5, 8.5, 7, 14.5, 6.5, 7, 5.5].map((width, index) => (
                 <col key={index} style={{ width: `${width}%` }} />
               ))}
             </colgroup>
             <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-2xs">
-              <tr className="text-[10px] sm:text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                {/* 1. NO */}
-                <th className="py-3 px-2 text-center w-10 bg-slate-100 dark:bg-slate-800 sticky top-0">
+              <tr className="text-[10px] sm:text-[11px] font-black text-slate-700 dark:text-slate-300 tracking-wider">
+                {/* 0. NO */}
+                <th className="py-3 px-2 text-center w-10 bg-slate-100 dark:bg-slate-800 sticky top-0 uppercase">
                   NO
                 </th>
-                {/* 2. DAPUR */}
+                {/* 1. Dapur */}
                 <th className="py-3 px-2 text-center whitespace-nowrap bg-slate-100 dark:bg-slate-800 sticky top-0">
-                  DAPUR
+                  Dapur
                 </th>
-                {/* 3. ITEM */}
-                <th className="py-3 px-2 bg-slate-100 dark:bg-slate-800 sticky top-0">
-                  ITEM
-                </th>
-                {/* 3.5. PEMASOK */}
-                <th className="py-3 px-1 text-center bg-slate-100 dark:bg-slate-800 sticky top-0">
-                  PEMASOK
-                </th>
-                {/* 4. DATE */}
-                <th className="py-3 px-2 text-center whitespace-nowrap bg-slate-100 dark:bg-slate-800 sticky top-0">
-                  DATE
-                </th>
-                {/* 5. QTY */}
+                {/* 2. Qty */}
                 <th className="py-3 px-2 text-center w-12 bg-slate-100 dark:bg-slate-800 sticky top-0">
-                  QTY
+                  Qty
                 </th>
-                {/* 6. TOKO */}
-                <th className="py-3 px-2 text-center whitespace-nowrap bg-slate-100 dark:bg-slate-800 sticky top-0">
-                  TOKO
+                {/* 3. Item */}
+                <th className="py-3 px-2 bg-slate-100 dark:bg-slate-800 sticky top-0">
+                  Item
                 </th>
-                {/* 7. PAYMENT */}
-                <th className="py-3 px-2 text-center whitespace-nowrap bg-slate-100 dark:bg-slate-800 sticky top-0">
-                  PAYMENT
-                </th>
-                {/* 8. DILEVERY */}
-                <th className="py-3 px-2 text-center whitespace-nowrap bg-slate-100 dark:bg-slate-800 sticky top-0">
-                  DILEVERY
-                </th>
-                {/* 9. H. JUAL */}
+                {/* 4. Jual */}
                 <th className="py-3 px-1.5 text-right whitespace-nowrap bg-slate-100 dark:bg-slate-800 sticky top-0">
-                  H. JUAL
+                  Jual
                 </th>
-                {/* 10. H. BELI */}
+                {/* 5. Beli */}
                 <th className="py-3 px-1.5 text-right whitespace-nowrap bg-slate-100 dark:bg-slate-800 sticky top-0">
-                  H. BELI
+                  Beli
                 </th>
-                {/* 11. CASHBACK */}
+                {/* 6. Laba */}
+                <th className="py-3 px-1.5 text-right whitespace-nowrap bg-slate-100 dark:bg-slate-800 sticky top-0 text-emerald-700 dark:text-emerald-400">
+                  Laba
+                </th>
+                {/* 7. CB */}
                 <th className="py-3 px-1.5 text-right whitespace-nowrap bg-slate-100 dark:bg-slate-800 sticky top-0 text-amber-700 dark:text-amber-400">
-                  CASHBACK
+                  CB
                 </th>
-                {/* 12. CATATAN */}
+                {/* 8. Catatan */}
                 <th className="py-3 px-2 text-left whitespace-nowrap bg-slate-100 dark:bg-slate-800 sticky top-0 text-slate-700 dark:text-slate-300">
-                  CATATAN
+                  Catatan
                 </th>
-                {/* 13. AKSI */}
+                {/* 9. Payment */}
+                <th className="py-3 px-2 text-center whitespace-nowrap bg-slate-100 dark:bg-slate-800 sticky top-0">
+                  Payment
+                </th>
+                {/* 10. Delivery */}
+                <th className="py-3 px-2 text-center whitespace-nowrap bg-slate-100 dark:bg-slate-800 sticky top-0">
+                  Delivery
+                </th>
+                {/* 11. Aksi */}
                 <th className="py-3 px-1 text-center whitespace-nowrap bg-slate-100 dark:bg-slate-800 sticky top-0">
-                  AKSI
+                  Aksi
                 </th>
               </tr>
             </thead>

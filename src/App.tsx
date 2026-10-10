@@ -19,7 +19,6 @@ import { HeaderBanner } from './components/HeaderBanner';
 import { BottomNav, TabType } from './components/BottomNav';
 import { DashboardView } from './components/DashboardView';
 import { RekapView } from './components/RekapView';
-import { TransactionsView } from './components/TransactionsView';
 import { SupplierMonitoringView } from './components/SupplierMonitoringView';
 import { DriverDeliveryView } from './components/DriverDeliveryView';
 import { OperationalExpensesView } from './components/OperationalExpensesView';
@@ -256,7 +255,6 @@ export default function App() {
     handleViewInvoice,
     handleSaveInvoiceRecord,
     handleTriggerBackgroundExport,
-    handleDeleteTransaction,
     handleDeleteInvoice,
   } = useInvoiceFlow({
     invoices,
@@ -588,44 +586,6 @@ export default function App() {
                     if (tab) setSettingsInitialTab(tab);
                     setIsSettingsOpen(true);
                   }}
-                  onOpenExportHistory={() => setIsExportHistoryOpen(true)}
-                  isExportingActive={isExportingActive}
-                  exportHistoryCount={exportHistory.length}
-                  isOnline={isOnline}
-                />
-              </motion.div>
-            ) : activeTab === 'transaksi' ? (
-              <motion.div
-                key="transaksi"
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                <TransactionsView
-                  invoices={invoices}
-                  orders={orders}
-                  isLoading={isLoadingDb}
-                  kitchens={kitchens}
-                  stores={stores}
-                  selectedDate={selectedDate}
-                  onDateChange={setSelectedDate}
-                  onToggleStatus={handleToggleStatus}
-                  onUpdatePaymentStatus={handleUpdatePaymentStatus}
-                  onUpdateDeliveryStatus={handleUpdateDeliveryStatus}
-                  onUpdateGroupPaymentStatus={handleUpdateGroupPaymentStatus}
-                  onUpdateGroupDeliveryStatus={handleUpdateGroupDeliveryStatus}
-                  onToggleBatchStatus={handleToggleBatchStatus}
-                  onEditOrder={handleOpenEditOrder}
-                  onDuplicateOrder={handleDuplicateOrder}
-                  onDeleteOrder={handleDeleteOrder}
-                  onDeleteKitchenOrders={handleDeleteKitchenOrders}
-                  onOpenInvoiceModal={handleStartInvoiceFlow}
-                  onExportInvoicePdf={handleDirect1ClickExportInvoicePdf}
-                  onViewInvoice={handleViewInvoice}
-                  onDeleteInvoice={handleDeleteInvoice}
-                  onDeleteTransaction={handleDeleteTransaction}
-                  onOpenAddModal={handleOpenAddModal}
                   onOpenExportHistory={() => setIsExportHistoryOpen(true)}
                   isExportingActive={isExportingActive}
                   exportHistoryCount={exportHistory.length}
