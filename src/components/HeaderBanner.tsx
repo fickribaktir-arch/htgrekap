@@ -603,4 +603,3 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
     </header>
   );
 });
-

@@ -322,4 +322,3 @@ export const DateFilterPill: React.FC<DateFilterPillProps> = ({
     </div>
   );
 };
-

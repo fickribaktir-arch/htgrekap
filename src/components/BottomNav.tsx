@@ -84,4 +84,3 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onChangeTab, on
     </nav>
   </div>
 );
-

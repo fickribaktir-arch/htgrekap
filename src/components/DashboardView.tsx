@@ -481,4 +481,3 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     </div>
   );
 });
-
