@@ -528,7 +528,6 @@ export default function App() {
           onDeleteSelectedNotes={confirmDeleteSelectedNotes}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenExportHistory={() => setIsExportHistoryOpen(true)}
-          onLockApp={handleLockApp}
           isSyncingGas={isLoadingDb}
           isExportingActive={isExportingActive}
           exportHistoryCount={exportHistory.length}

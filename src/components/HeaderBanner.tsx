@@ -20,7 +20,6 @@ import {
   Truck,
   Calendar,
   ChevronDown,
-  Lock,
   X,
   Trash2,
   ListChecks,
@@ -49,7 +48,6 @@ interface HeaderBannerProps {
   onOpenSettings: () => void;
   onOpenExportHistory: () => void;
   onOpenSyncSheet?: () => void;
-  onLockApp?: () => void;
   isSyncingGas?: boolean;
   isExportingActive?: boolean;
   exportHistoryCount?: number;
@@ -70,7 +68,6 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
   onOpenSettings,
   onOpenExportHistory,
   onOpenSyncSheet,
-  onLockApp,
   isSyncingGas = false,
   isExportingActive = false,
   exportHistoryCount = 0,
@@ -219,16 +216,6 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
                 <Settings className="w-4 h-4" />
               </button>
 
-              {onLockApp && (
-                <button
-                  type="button"
-                  onClick={onLockApp}
-                  title="Kunci Aplikasi (Auth PIN)"
-                  className="p-2 rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 active:scale-95 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
-                >
-                  <Lock className="w-4 h-4" />
-                </button>
-              )}
             </div>
           </div>
 
@@ -290,16 +277,6 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
                 <Settings className="w-4 h-4" />
               </button>
 
-              {onLockApp && (
-                <button
-                  type="button"
-                  onClick={onLockApp}
-                  title="Kunci Aplikasi (Auth PIN)"
-                  className="p-2 rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 active:scale-95 border border-slate-200/80 dark:border-slate-700 transition-all cursor-pointer"
-                >
-                  <Lock className="w-4 h-4" />
-                </button>
-              )}
             </div>
           </div>
         </div>
