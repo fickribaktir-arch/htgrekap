@@ -142,9 +142,10 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
       onDateChange(val.startDate);
     }
     if (onPeriodChange) {
-      if (!val.startDate && !val.endDate) {
-        onPeriodChange('all_time');
-      }
+      const selectablePeriod = ['all_time', 'hari_ini', 'mingguan', 'bulan_ini'].includes(val.type || '');
+      if (selectablePeriod) onPeriodChange(val.type as DashboardPeriod);
+      else if (val.startDate || val.endDate) onPeriodChange('custom');
+      else onPeriodChange('all_time');
     }
   };
 
@@ -480,3 +481,4 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     </div>
   );
 });
+

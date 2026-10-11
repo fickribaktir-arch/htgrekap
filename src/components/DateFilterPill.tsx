@@ -102,6 +102,7 @@ export const DateFilterPill: React.FC<DateFilterPillProps> = ({
     const newStart = e.target.value;
     onChange({
       ...value,
+      type: 'custom',
       startDate: newStart,
       endDate: value.endDate && value.endDate < newStart ? newStart : value.endDate,
     });
@@ -111,6 +112,7 @@ export const DateFilterPill: React.FC<DateFilterPillProps> = ({
     const newEnd = e.target.value;
     onChange({
       ...value,
+      type: 'custom',
       startDate: value.startDate && value.startDate > newEnd ? newEnd : value.startDate,
       endDate: newEnd,
     });
@@ -320,3 +322,4 @@ export const DateFilterPill: React.FC<DateFilterPillProps> = ({
     </div>
   );
 };
+

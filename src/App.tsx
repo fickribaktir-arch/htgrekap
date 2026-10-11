@@ -18,7 +18,6 @@ import {
 import { HeaderBanner } from './components/HeaderBanner';
 import { BottomNav, TabType } from './components/BottomNav';
 import { DashboardView } from './components/DashboardView';
-import { RekapView } from './components/RekapView';
 import { SupplierMonitoringView } from './components/SupplierMonitoringView';
 import { DriverDeliveryView } from './components/DriverDeliveryView';
 import { OperationalExpensesView } from './components/OperationalExpensesView';
@@ -518,6 +517,8 @@ export default function App() {
       {/* Top Header Banner */}
       {activeTab === 'dashboard' && (
         <HeaderBanner
+          period={dashboardPeriod}
+          onPeriodChange={setDashboardPeriod}
           selectedDate={selectedDate}
           notes={notes}
           dashboardMetrics={dashboardFinancialMetrics}
@@ -525,8 +526,6 @@ export default function App() {
           onFollowUpNote={handleOpenFollowUpNote}
           onOpenNewNoteSheet={() => setIsNoteSheetOpen(true)}
           onDeleteSelectedNotes={confirmDeleteSelectedNotes}
-          onOpenRekap={() => setActiveTab('rekap')}
-          onOpenExpenses={() => handleTabChange('pengeluaran')}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenExportHistory={() => setIsExportHistoryOpen(true)}
           onLockApp={handleLockApp}
@@ -578,32 +577,6 @@ export default function App() {
                   onViewInvoice={handleViewInvoice}
                   onOpenExportModal={() => setIsExportOpen(true)}
                   onOpenAddModal={() => handleOpenAddModal()}
-                />
-              </motion.div>
-            ) : activeTab === 'rekap' ? (
-              <motion.div
-                key="rekap"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2 }}
-              >
-                <RekapView
-                  orders={orders}
-                  stores={stores}
-                  kitchens={kitchens}
-                  invoices={invoices}
-                  selectedDate={selectedDate}
-                  period={dashboardPeriod}
-                  onPeriodChange={setDashboardPeriod}
-                  onOpenSettings={(tab) => {
-                    if (tab) setSettingsInitialTab(tab);
-                    setIsSettingsOpen(true);
-                  }}
-                  onOpenExportHistory={() => setIsExportHistoryOpen(true)}
-                  isExportingActive={isExportingActive}
-                  exportHistoryCount={exportHistory.length}
-                  isOnline={isOnline}
                 />
               </motion.div>
             ) : activeTab === 'pengiriman' ? (
@@ -868,3 +841,4 @@ export default function App() {
     </div>
   );
 }
+

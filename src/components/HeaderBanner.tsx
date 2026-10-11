@@ -30,13 +30,15 @@ import {
   TrendingUp,
   Banknote
 } from 'lucide-react';
-import { NoteItem } from '../types';
+import { DashboardPeriod, NoteItem } from '../types';
 import { parseDateSafe, formatTanggalWeb, formatTanggalSimple, getTodayWIB } from '../lib/formatters';
 import { DashboardSummaryMetrics } from '../lib/orderValidation';
 import { AnimatedCounter } from './AnimatedCounter';
 import { ThemeToggle } from './ThemeToggle';
 
 interface HeaderBannerProps {
+  period: DashboardPeriod;
+  onPeriodChange: (period: DashboardPeriod) => void;
   selectedDate: string;
   notes: NoteItem[];
   dashboardMetrics: DashboardSummaryMetrics;
@@ -44,8 +46,6 @@ interface HeaderBannerProps {
   onFollowUpNote?: (note: NoteItem) => void;
   onOpenNewNoteSheet: () => void;
   onDeleteSelectedNotes: (noteIds: string[]) => void;
-  onOpenRekap: () => void;
-  onOpenExpenses?: () => void;
   onOpenSettings: () => void;
   onOpenExportHistory: () => void;
   onOpenSyncSheet?: () => void;
@@ -58,6 +58,8 @@ interface HeaderBannerProps {
 }
 
 export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
+  period,
+  onPeriodChange,
   selectedDate,
   notes = [],
   dashboardMetrics,
@@ -65,8 +67,6 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
   onFollowUpNote,
   onOpenNewNoteSheet,
   onDeleteSelectedNotes,
-  onOpenRekap,
-  onOpenExpenses,
   onOpenSettings,
   onOpenExportHistory,
   onOpenSyncSheet,
@@ -231,8 +231,27 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
 
           {/* Right Section: Filter Switcher & Desktop Action Buttons */}
           <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
-
-
+            <div className="inline-flex items-center gap-0.5 sm:gap-1 rounded-full border border-slate-200/80 dark:border-slate-700 bg-slate-100/90 dark:bg-slate-800/90 p-1 shadow-2xs overflow-x-auto">
+              {([
+                ['hari_ini', 'Hari Ini'],
+                ['mingguan', 'Mingguan'],
+                ['bulan_ini', 'Bulanan'],
+                ['all_time', 'All Time'],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={period === value}
+                  onClick={() => onPeriodChange(value)}
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${period === value
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             {/* Desktop Action Buttons: Dark Mode | Download | Settings */}
             <div className="hidden sm:flex items-center gap-1.5">
               <ThemeToggle />
@@ -296,13 +315,13 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
                 </div>
               </div>
 
-              <button type="button" onClick={onOpenRekap} aria-label="Buka Rekap dari Laba Bersih" title="Buka Rekap" className="min-h-[82px] w-full bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/90 dark:border-emerald-800/60 rounded-2xl px-4 py-3 flex items-center gap-3 text-left shadow-2xs hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/70 transition-colors cursor-pointer">
+              <div className="min-h-[82px] w-full bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/90 dark:border-emerald-800/60 rounded-2xl px-4 py-3 flex items-center gap-3 text-left shadow-2xs">
                 <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0"><CheckCircle2 className="w-5 h-5" /></div>
                 <div className="min-w-0">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block">Laba Bersih</span>
                   <span className={`text-lg sm:text-xl font-black font-nominal leading-tight truncate block ${totalLabaBersih >= 0 ? 'text-emerald-950 dark:text-emerald-100' : 'text-rose-700 dark:text-rose-300'}`}><AnimatedCounter value={totalLabaBersih} format="rupiah" /></span>
                 </div>
-              </button>
+              </div>
             </div>
 
             <div className="sm:col-span-1 xl:col-span-2 min-h-[112px] xl:min-h-full bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl p-4 flex flex-col justify-center gap-3 shadow-2xs">
@@ -313,13 +332,13 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
               </div>
             </div>
 
-            <button type="button" onClick={onOpenExpenses} aria-label="Buka Pengeluaran Operasional" title={onOpenExpenses ? 'Klik untuk melihat rincian Pengeluaran Operasional' : 'Biaya Operasional'} className={`sm:col-span-1 xl:col-span-2 min-h-[112px] xl:min-h-full w-full bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200/90 dark:border-rose-800/60 rounded-2xl p-4 flex flex-col justify-center gap-3 text-left shadow-2xs hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/70 transition-colors ${onOpenExpenses ? 'cursor-pointer' : ''}`}>
+            <div className="sm:col-span-1 xl:col-span-2 min-h-[112px] xl:min-h-full w-full bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200/90 dark:border-rose-800/60 rounded-2xl p-4 flex flex-col justify-center gap-3 text-left shadow-2xs">
               <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center"><Banknote className="w-5 h-5" /></div>
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 block">Biaya Operasional</span>
                 <span className="text-lg sm:text-xl font-black font-nominal text-rose-950 dark:text-rose-100 leading-tight block"><AnimatedCounter value={biayaOperasional} format="rupiah" /></span>
               </div>
-            </button>
+            </div>
 
             <div className="sm:col-span-2 xl:col-span-4 min-h-[180px] bg-white dark:bg-slate-800/90 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl p-4 flex flex-col justify-between shadow-2xs">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700/60 pb-3">
@@ -584,3 +603,4 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
     </header>
   );
 });
+

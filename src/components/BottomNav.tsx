@@ -1,7 +1,7 @@
 import React from 'react';
 import { LayoutDashboard, Plus, Wallet, Banknote } from 'lucide-react';
 
-export type TabType = 'dashboard' | 'rekap' | 'monitoring_pemasok' | 'pengeluaran' | 'pengiriman';
+export type TabType = 'dashboard' | 'monitoring_pemasok' | 'pengeluaran' | 'pengiriman';
 
 interface BottomNavProps {
   activeTab: TabType;
@@ -84,3 +84,4 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onChangeTab, on
     </nav>
   </div>
 );
+
