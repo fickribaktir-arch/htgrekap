@@ -349,21 +349,21 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
               </div>
             </div>
 
-            <div className="sm:col-span-2 md:col-span-1 min-h-[112px] md:min-h-full rounded-2xl p-3 md:p-2 lg:p-3 flex flex-col justify-center gap-3 md:gap-2 bg-emerald-50/60 dark:bg-emerald-950/20">
-              <div className="flex items-center justify-between gap-1.5">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <div className="w-8 h-8 md:w-6 md:h-6 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0"><ShoppingBag className="w-4 h-4 md:w-3.5 md:h-3.5" /></div>
-                  <span className="text-[10px] md:text-[8px] lg:text-[9px] font-black uppercase tracking-wide text-slate-700 dark:text-slate-300 leading-tight">Status Pemesanan</span>
+            <div className="sm:col-span-2 md:col-span-1 min-h-[112px] md:min-h-full bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3 md:p-2 lg:p-3 flex flex-col justify-center gap-4 md:gap-3 shadow-sm">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 md:w-6 md:h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0"><ShoppingBag className="w-3.5 h-3.5" /></div>
+                  <span className="text-[10px] md:text-[8px] lg:text-[9px] font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300 whitespace-nowrap">Status Pemesanan</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-[10px] md:text-[8px] lg:text-[9px] font-semibold whitespace-nowrap text-slate-500 dark:text-slate-400">
-                  <span>Lunas <strong className="text-emerald-700 dark:text-emerald-300">{paidBatches}</strong></span>
-                  <span>Belum <strong className="text-amber-700 dark:text-amber-300">{unpaidBatches}</strong></span>
+                <div className="flex items-center gap-2 text-[9px] md:text-[8px] lg:text-[9px] font-semibold whitespace-nowrap">
+                  <span className="text-slate-500 dark:text-slate-400"><span className="text-emerald-500">●</span> Lunas <strong className="text-slate-800 dark:text-slate-100">{paidBatches}</strong></span>
+                  <span className="text-slate-500 dark:text-slate-400"><span className="text-amber-500">●</span> Belum <strong className="text-slate-800 dark:text-slate-100">{unpaidBatches}</strong></span>
                 </div>
               </div>
-              <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-700/80 text-center">
-                <div className="px-1"><span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 block">Total</span><div className="text-base md:text-sm font-black font-nominal text-slate-900 dark:text-slate-100"><AnimatedCounter value={totalBatches} format="number" /><span className="ml-0.5 text-[9px] font-medium text-slate-400">trx</span></div></div>
-                <div className="px-1"><span className="text-[9px] font-semibold text-emerald-700 dark:text-emerald-400 block">Delivery</span><div className="text-base md:text-sm font-black font-nominal text-emerald-800 dark:text-emerald-200"><AnimatedCounter value={deliveredBatches} format="number" /><span className="ml-0.5 text-[9px] font-medium opacity-80">trx</span></div></div>
-                <div className="px-1"><span className={`text-[9px] font-semibold block ${pendingBatches > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>Pending</span><div className={`text-base md:text-sm font-black font-nominal ${pendingBatches > 0 ? 'text-rose-800 dark:text-rose-200' : 'text-slate-700 dark:text-slate-300'}`}><AnimatedCounter value={pendingBatches} format="number" /><span className="ml-0.5 text-[9px] font-medium opacity-80">trx</span></div></div>
+              <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-700 text-center">
+                <div className="px-1"><span className="text-[9px] font-medium text-slate-500 dark:text-slate-400 block">Total</span><div className="text-xl md:text-base lg:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100"><AnimatedCounter value={totalBatches} format="number" /><span className="ml-1 text-[9px] font-medium text-slate-400">trx</span></div></div>
+                <div className="px-1"><span className="text-[9px] font-medium text-slate-500 dark:text-slate-400 block">Delivery</span><div className="text-xl md:text-base lg:text-lg font-bold tracking-tight text-emerald-700 dark:text-emerald-300"><AnimatedCounter value={deliveredBatches} format="number" /><span className="ml-1 text-[9px] font-medium text-slate-400">trx</span></div></div>
+                <div className="px-1"><span className="text-[9px] font-medium text-slate-500 dark:text-slate-400 block">Pending</span><div className={`text-xl md:text-base lg:text-lg font-bold tracking-tight ${pendingBatches > 0 ? 'text-rose-700 dark:text-rose-300' : 'text-slate-700 dark:text-slate-300'}`}><AnimatedCounter value={pendingBatches} format="number" /><span className="ml-1 text-[9px] font-medium text-slate-400">trx</span></div></div>
               </div>
             </div>
           </div>
