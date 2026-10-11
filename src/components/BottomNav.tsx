@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Plus, Wallet, Banknote } from 'lucide-react';
+import { LayoutDashboard, SquarePlus, Wallet, Banknote } from 'lucide-react';
 
 export type TabType = 'dashboard' | 'monitoring_pemasok' | 'pengeluaran' | 'pengiriman';
 
@@ -10,77 +10,93 @@ interface BottomNavProps {
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onChangeTab, onOpenManual }) => (
-  <div className="fixed bottom-3 sm:bottom-4 md:bottom-5 left-0 right-0 z-30 px-2 sm:px-4 max-w-[680px] mx-auto no-print pointer-events-none">
-    <nav aria-label="Navigasi utama" className="clay-card relative h-[72px] rounded-[28px] flex items-center justify-between px-4 sm:px-8 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-lg pointer-events-auto transition-colors duration-200">
-      {/* 1. Grup Kiri: Dashboard */}
-      <div className="flex items-center gap-0.5 sm:gap-2">
-        {/* Tombol Dashboard */}
-        <button
-          type="button"
-          onClick={() => onChangeTab('dashboard')}
-          aria-current={activeTab === 'dashboard' ? 'page' : undefined}
-          className={`flex min-w-[50px] sm:min-w-[64px] flex-col items-center justify-center gap-0.5 transition-all cursor-pointer ${
-            activeTab === 'dashboard' 
-              ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' 
-              : 'text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-300 font-semibold'
+  <div className="fixed bottom-3 sm:bottom-4 md:bottom-5 left-0 right-0 z-30 px-3 sm:px-4 max-w-[480px] sm:max-w-[520px] mx-auto no-print pointer-events-none">
+    <nav
+      aria-label="Navigasi utama"
+      className="relative h-[62px] sm:h-[66px] rounded-full grid grid-cols-4 items-center px-2 sm:px-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgba(15,23,42,0.08)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.5)] pointer-events-auto transition-all duration-200"
+    >
+      {/* 1. Dashboard */}
+      <button
+        type="button"
+        onClick={() => onChangeTab('dashboard')}
+        aria-current={activeTab === 'dashboard' ? 'page' : undefined}
+        className={`group flex flex-col items-center justify-center gap-1 py-1 px-1 rounded-2xl transition-all cursor-pointer ${
+          activeTab === 'dashboard'
+            ? 'text-indigo-600 dark:text-indigo-400 font-extrabold'
+            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 font-semibold'
+        }`}
+      >
+        <div className="relative flex items-center justify-center">
+          <LayoutDashboard className={`w-5 h-5 transition-transform group-hover:scale-105 ${activeTab === 'dashboard' ? 'stroke-[2.3]' : 'stroke-[1.8]'}`} />
+        </div>
+        <span className="text-[8.5px] sm:text-[9.5px] uppercase tracking-wider">Dashboard</span>
+        <span
+          className={`w-3.5 h-0.5 rounded-full transition-all ${
+            activeTab === 'dashboard' ? 'bg-indigo-600 dark:bg-indigo-400' : 'bg-transparent'
           }`}
-        >
-          <span className={`p-1.5 rounded-xl transition-all ${activeTab === 'dashboard' ? 'clay-pill-active text-[#4f46e5] dark:text-white' : ''}`}>
-            <LayoutDashboard className="w-4 h-4 sm:w-5 sm:h-5" />
-          </span>
-          <span className="text-[8.5px] sm:text-[10px] uppercase tracking-wider">Dashboard</span>
-        </button>
-      </div>
+        />
+      </button>
 
-      {/* 2. Tombol Plus (Tengah Melayang) */}
+      {/* 2. Tombol Tambah / Input Pesanan (Flat, sejajar dengan icon lainnya) */}
       <button
         type="button"
         onClick={onOpenManual}
         aria-label="Input pesanan manual"
         title="Input pesanan manual"
-        className="absolute left-1/2 -top-5 -translate-x-1/2 flex h-16 w-16 items-center justify-center rounded-[20px] bg-indigo-600 text-white shadow-[0_8px_25px_rgba(79,70,229,0.45)] ring-4 ring-white dark:ring-slate-900 transition-transform hover:scale-105 active:scale-95 cursor-pointer z-10"
+        className="group flex flex-col items-center justify-center gap-1 py-1 px-1 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 font-semibold transition-all cursor-pointer active:scale-95"
       >
-        <Plus className="h-9 w-9 stroke-[2.7]" />
+        <div className="relative flex items-center justify-center">
+          <SquarePlus className="w-5 h-5 stroke-[1.8] group-hover:stroke-[2.2] transition-all group-hover:scale-105" />
+        </div>
+        <span className="text-[8.5px] sm:text-[9.5px] uppercase tracking-wider font-extrabold">TAMBAH</span>
+        <span className="w-3.5 h-0.5 rounded-full bg-transparent" />
       </button>
 
-      {/* 3. Grup Kanan: PEMBELIAN & PENGELUARAN */}
-      <div className="flex items-center gap-0.5 sm:gap-2">
-        {/* Tombol Pembelian */}
-        <button
-          type="button"
-          onClick={() => onChangeTab('monitoring_pemasok')}
-          aria-current={activeTab === 'monitoring_pemasok' ? 'page' : undefined}
-          className={`flex min-w-[50px] sm:min-w-[64px] flex-col items-center justify-center gap-0.5 transition-all cursor-pointer ${
-            activeTab === 'monitoring_pemasok' 
-              ? 'text-rose-600 dark:text-rose-400 font-extrabold' 
-              : 'text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-300 font-semibold'
+      {/* 3. Pembelian */}
+      <button
+        type="button"
+        onClick={() => onChangeTab('monitoring_pemasok')}
+        aria-current={activeTab === 'monitoring_pemasok' ? 'page' : undefined}
+        className={`group flex flex-col items-center justify-center gap-1 py-1 px-1 rounded-2xl transition-all cursor-pointer ${
+          activeTab === 'monitoring_pemasok'
+            ? 'text-rose-600 dark:text-rose-400 font-extrabold'
+            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 font-semibold'
+        }`}
+        title="Monitoring Pengeluaran Pembelian ke Pemasok"
+      >
+        <div className="relative flex items-center justify-center">
+          <Wallet className={`w-5 h-5 transition-transform group-hover:scale-105 ${activeTab === 'monitoring_pemasok' ? 'stroke-[2.3]' : 'stroke-[1.8]'}`} />
+        </div>
+        <span className="text-[8.5px] sm:text-[9.5px] uppercase tracking-wider font-extrabold">PEMBELIAN</span>
+        <span
+          className={`w-3.5 h-0.5 rounded-full transition-all ${
+            activeTab === 'monitoring_pemasok' ? 'bg-rose-600 dark:bg-rose-400' : 'bg-transparent'
           }`}
-          title="Monitoring Pengeluaran Pembelian ke Pemasok"
-        >
-          <span className={`p-1.5 rounded-xl transition-all ${activeTab === 'monitoring_pemasok' ? 'clay-pill-active text-rose-600 dark:text-rose-400' : ''}`}>
-            <Wallet className="w-4 h-4 sm:w-5 sm:h-5" />
-          </span>
-          <span className="text-[8.5px] sm:text-[10px] uppercase tracking-wider font-extrabold">PEMBELIAN</span>
-        </button>
+        />
+      </button>
 
-        {/* Tombol Pengeluaran */}
-        <button
-          type="button"
-          onClick={() => onChangeTab('pengeluaran')}
-          aria-current={activeTab === 'pengeluaran' ? 'page' : undefined}
-          className={`flex min-w-[50px] sm:min-w-[64px] flex-col items-center justify-center gap-0.5 transition-all cursor-pointer ${
-            activeTab === 'pengeluaran' 
-              ? 'text-amber-600 dark:text-amber-400 font-extrabold' 
-              : 'text-slate-400 dark:text-slate-500 hover:text-amber-600 dark:hover:text-amber-300 font-semibold'
+      {/* 4. Pengeluaran */}
+      <button
+        type="button"
+        onClick={() => onChangeTab('pengeluaran')}
+        aria-current={activeTab === 'pengeluaran' ? 'page' : undefined}
+        className={`group flex flex-col items-center justify-center gap-1 py-1 px-1 rounded-2xl transition-all cursor-pointer ${
+          activeTab === 'pengeluaran'
+            ? 'text-amber-600 dark:text-amber-400 font-extrabold'
+            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 font-semibold'
+        }`}
+        title="Pengeluaran Operasional (BBM, Gaji, Listrik, Sewa, dll)"
+      >
+        <div className="relative flex items-center justify-center">
+          <Banknote className={`w-5 h-5 transition-transform group-hover:scale-105 ${activeTab === 'pengeluaran' ? 'stroke-[2.3]' : 'stroke-[1.8]'}`} />
+        </div>
+        <span className="text-[8.5px] sm:text-[9.5px] uppercase tracking-wider font-extrabold">PENGELUARAN</span>
+        <span
+          className={`w-3.5 h-0.5 rounded-full transition-all ${
+            activeTab === 'pengeluaran' ? 'bg-amber-600 dark:bg-amber-400' : 'bg-transparent'
           }`}
-          title="Pengeluaran Operasional (BBM, Gaji, Listrik, Sewa, dll)"
-        >
-          <span className={`p-1.5 rounded-xl transition-all ${activeTab === 'pengeluaran' ? 'clay-pill-active text-amber-600 dark:text-amber-400' : ''}`}>
-            <Banknote className="w-4 h-4 sm:w-5 sm:h-5" />
-          </span>
-          <span className="text-[8.5px] sm:text-[10px] uppercase tracking-wider font-extrabold">PENGELUARAN</span>
-        </button>
-      </div>
+        />
+      </button>
     </nav>
   </div>
 );

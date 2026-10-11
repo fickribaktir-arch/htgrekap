@@ -37,6 +37,7 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
   orders,
   stores = [],
   pemasokList = [],
+  onUpdatePaymentStatus,
   onUpdateGroupPaymentStatus,
 }) => {
   // Filter States
@@ -262,8 +263,10 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
     const nextPay: PaymentStatus = currentPay === 'PAID' ? 'UNPAID' : 'PAID';
     if (onUpdateGroupPaymentStatus) {
       onUpdateGroupPaymentStatus(paymentGroups.get(getPaymentGroupKey(item)) || [item], nextPay);
+    } else if (onUpdatePaymentStatus) {
+      onUpdatePaymentStatus(item.id, nextPay);
     }
-  }, [getGroupPayStatus, getPaymentGroupKey, paymentGroups, onUpdateGroupPaymentStatus]);
+  }, [getGroupPayStatus, getPaymentGroupKey, paymentGroups, onUpdateGroupPaymentStatus, onUpdatePaymentStatus]);
 
   return (
     <div className="space-y-4 pt-1 pb-36 sm:pb-24 font-sans text-slate-800 dark:text-slate-200 transition-colors">
