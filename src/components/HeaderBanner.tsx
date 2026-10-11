@@ -308,7 +308,7 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
               <div className="w-10 h-10 md:w-7 md:h-7 lg:w-9 lg:h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center"><ShoppingBag className="w-5 h-5 md:w-4 md:h-4" /></div>
               <div className="min-w-0">
                 <span className="text-[11px] md:text-[9px] lg:text-[10px] font-bold uppercase tracking-wider text-sky-800 dark:text-sky-300 block">Pembelian</span>
-                <span className="text-xs font-black font-nominal text-sky-950 dark:text-sky-100 leading-tight tracking-tight truncate block"><AnimatedCounter value={totalPengeluaran} format="rupiah" /></span>
+                <span className="text-sm lg:text-base font-black font-nominal text-sky-950 dark:text-sky-100 leading-tight tracking-tight truncate block"><AnimatedCounter value={totalPengeluaran} format="rupiah" /></span>
               </div>
             </div>
 
@@ -316,7 +316,7 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
               <div className="w-10 h-10 md:w-7 md:h-7 lg:w-9 lg:h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center"><Tag className="w-5 h-5 md:w-4 md:h-4" /></div>
               <div className="min-w-0">
                 <span className="text-[11px] md:text-[9px] lg:text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 block">Total Cashback</span>
-                <span className="text-xs font-black font-nominal text-amber-950 dark:text-amber-100 leading-tight tracking-tight truncate block"><AnimatedCounter value={totalCashback} format="rupiah" /></span>
+                <span className="text-sm lg:text-base font-black font-nominal text-amber-950 dark:text-amber-100 leading-tight tracking-tight truncate block"><AnimatedCounter value={totalCashback} format="rupiah" /></span>
               </div>
             </div>
 
@@ -324,7 +324,7 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
               <div className="w-10 h-10 md:w-7 md:h-7 lg:w-9 lg:h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center"><Banknote className="w-5 h-5 md:w-4 md:h-4" /></div>
               <div>
                 <span className="text-[11px] md:text-[9px] lg:text-[10px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 block">Biaya Operasional</span>
-                <span className="text-xs font-black font-nominal text-rose-950 dark:text-rose-100 leading-tight tracking-tight truncate block"><AnimatedCounter value={biayaOperasional} format="rupiah" /></span>
+                <span className="text-sm lg:text-base font-black font-nominal text-rose-950 dark:text-rose-100 leading-tight tracking-tight truncate block"><AnimatedCounter value={biayaOperasional} format="rupiah" /></span>
               </div>
             </div>
 
