@@ -285,7 +285,7 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
         {/* SUB-ROW: Status Operasional & Follow Up Notes */}
         <div className="grid grid-cols-1 gap-2.5">
           {/* Left: Status Operasional (Total Penjualan - Pengeluaran Beli - Total Cashback - Biaya Operasional - Laba Bersih - Status Pemesanan) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[minmax(155px,4fr)_minmax(130px,2fr)_minmax(115px,2fr)_minmax(115px,2fr)_minmax(150px,4fr)] gap-2 sm:gap-2.5 md:gap-1.5 lg:gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[minmax(130px,3fr)_minmax(150px,2.5fr)_minmax(150px,2.5fr)_minmax(140px,2.5fr)_minmax(150px,3fr)] lg:grid-cols-[minmax(155px,4fr)_minmax(160px,2fr)_minmax(160px,2fr)_minmax(150px,2fr)_minmax(220px,4fr)] gap-2 sm:gap-2.5 md:gap-1.5 lg:gap-2">
             <div className="sm:col-span-2 md:col-span-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2 sm:gap-2.5 md:gap-1.5 lg:gap-2">
               <div className="min-h-[82px] md:min-h-[68px] bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/90 dark:border-indigo-800/60 rounded-2xl px-4 py-3 md:px-2 md:py-2 flex items-center gap-3 md:gap-1.5 lg:px-3 shadow-2xs">
                 <div className="w-11 h-11 md:w-7 md:h-7 lg:w-9 lg:h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0"><TrendingUp className="w-5 h-5 md:w-4 md:h-4" /></div>
@@ -304,27 +304,27 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
               </div>
             </div>
 
-            <div className="sm:col-span-1 md:col-span-1 min-h-[112px] md:min-h-full bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/90 dark:border-sky-800/60 rounded-2xl p-4 md:p-2 lg:p-3 flex flex-col justify-center gap-3 md:gap-1.5 shadow-2xs">
+            <div className="sm:col-span-1 md:col-span-1 min-w-0 min-h-[112px] md:min-h-full overflow-hidden bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/90 dark:border-sky-800/60 rounded-2xl p-4 md:p-2 lg:p-3 flex flex-col justify-center gap-3 md:gap-1.5 shadow-2xs">
               <div className="w-10 h-10 md:w-7 md:h-7 lg:w-9 lg:h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center"><ShoppingBag className="w-5 h-5 md:w-4 md:h-4" /></div>
-              <div>
+              <div className="min-w-0">
                 <span className="text-[11px] md:text-[9px] lg:text-[10px] font-bold uppercase tracking-wider text-sky-800 dark:text-sky-300 block">Pembelian</span>
-                <span className="text-lg sm:text-xl md:text-[9px] lg:text-base xl:text-xl font-black font-nominal text-sky-950 dark:text-sky-100 leading-tight whitespace-nowrap block"><AnimatedCounter value={totalPengeluaran} format="rupiah" /></span>
+                <span className="text-xs font-black font-nominal text-sky-950 dark:text-sky-100 leading-tight tracking-tight truncate block"><AnimatedCounter value={totalPengeluaran} format="rupiah" /></span>
               </div>
             </div>
 
-            <div className="sm:col-span-1 md:col-span-1 min-h-[112px] md:min-h-full bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl p-4 md:p-2 lg:p-3 flex flex-col justify-center gap-3 md:gap-1.5 shadow-2xs">
+            <div className="sm:col-span-1 md:col-span-1 min-w-0 min-h-[112px] md:min-h-full overflow-hidden bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl p-4 md:p-2 lg:p-3 flex flex-col justify-center gap-3 md:gap-1.5 shadow-2xs">
               <div className="w-10 h-10 md:w-7 md:h-7 lg:w-9 lg:h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center"><Tag className="w-5 h-5 md:w-4 md:h-4" /></div>
-              <div>
+              <div className="min-w-0">
                 <span className="text-[11px] md:text-[9px] lg:text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 block">Total Cashback</span>
-                <span className="text-lg sm:text-xl md:text-[9px] lg:text-base xl:text-xl font-black font-nominal text-amber-950 dark:text-amber-100 leading-tight whitespace-nowrap block"><AnimatedCounter value={totalCashback} format="rupiah" /></span>
+                <span className="text-xs font-black font-nominal text-amber-950 dark:text-amber-100 leading-tight tracking-tight truncate block"><AnimatedCounter value={totalCashback} format="rupiah" /></span>
               </div>
             </div>
 
-            <div className="sm:col-span-1 md:col-span-1 min-h-[112px] md:min-h-full w-full bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200/90 dark:border-rose-800/60 rounded-2xl p-4 md:p-2 lg:p-3 flex flex-col justify-center gap-3 md:gap-1.5 text-left shadow-2xs">
+            <div className="sm:col-span-1 md:col-span-1 min-w-0 min-h-[112px] md:min-h-full w-full overflow-hidden bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200/90 dark:border-rose-800/60 rounded-2xl p-4 md:p-2 lg:p-3 flex flex-col justify-center gap-3 md:gap-1.5 text-left shadow-2xs">
               <div className="w-10 h-10 md:w-7 md:h-7 lg:w-9 lg:h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center"><Banknote className="w-5 h-5 md:w-4 md:h-4" /></div>
               <div>
                 <span className="text-[11px] md:text-[9px] lg:text-[10px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 block">Biaya Operasional</span>
-                <span className="text-lg sm:text-xl md:text-[9px] lg:text-base xl:text-xl font-black font-nominal text-rose-950 dark:text-rose-100 leading-tight whitespace-nowrap block"><AnimatedCounter value={biayaOperasional} format="rupiah" /></span>
+                <span className="text-xs font-black font-nominal text-rose-950 dark:text-rose-100 leading-tight tracking-tight truncate block"><AnimatedCounter value={biayaOperasional} format="rupiah" /></span>
               </div>
             </div>
 
