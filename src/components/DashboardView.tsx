@@ -5,9 +5,7 @@ import {
   Utensils, 
   ChevronDown, 
   X,
-  ShoppingBag,
-  Truck,
-  Clock
+  ShoppingBag
 } from 'lucide-react';
 import { 
   OrderItem, 
@@ -372,82 +370,44 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
         </div>
       </div>
 
-      {/* Panel Status Pemesanan Terpadu (Satu Blok: Total Pesanan, Delivery Hijau, Pending Merah) */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-2.5 sm:p-3 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-colors">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-800 shrink-0">
-            <ShoppingBag className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs font-black text-slate-800 dark:text-slate-100 flex items-center gap-1.5 truncate">
-              <span>Status Pemesanan ({currentFilterLabel})</span>
-              {statusFilter !== 'all' && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800">
-                  Filter: {statusFilter === 'delivered' ? 'Delivery' : 'Pending'}
-                </span>
-              )}
-            </div>
-            <div className="text-[10px] text-slate-500 dark:text-slate-400">
-              {statusFilter === 'all'
-                ? `${dashboardMetrics.totalItems} barang dalam ${dashboardMetrics.totalTrx} nota keberangkatan`
-                : statusFilter === 'delivered'
-                ? `Menampilkan ${dashboardMetrics.displayedItems} barang dalam ${dashboardMetrics.displayedTrx} nota delivery selesai (dari ${dashboardMetrics.totalTrx} total)`
-                : `Menampilkan ${dashboardMetrics.displayedItems} barang dalam ${dashboardMetrics.displayedTrx} nota pending (dari ${dashboardMetrics.totalTrx} total)`}
-            </div>
-          </div>
-        </div>
-
-        {/* 3 Informasi: Total, Delivery Selesai (Hijau), Pending (Merah) - Interaktif & Tervalidasi */}
-        <div className="flex items-center gap-1.5 sm:gap-2 self-start sm:self-auto overflow-x-auto w-full sm:w-auto">
-          {/* 1. Total Pesanan */}
+      {/* Compact status toggles, styled as filter pills rather than a full-width panel. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700 bg-slate-100/90 dark:bg-slate-800/90 p-1 shadow-2xs">
+          <span className="flex items-center gap-1.5 px-2 text-[11px] font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">
+            <ShoppingBag className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+            Status
+          </span>
           <button
             type="button"
+            aria-pressed={statusFilter === 'all'}
             onClick={() => setStatusFilter('all')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border shrink-0 transition-all cursor-pointer min-h-[38px] ${
-              statusFilter === 'all'
-                ? 'bg-slate-200 dark:bg-slate-700 border-indigo-500 dark:border-indigo-400 ring-2 ring-indigo-500/30 text-slate-900 dark:text-white shadow-2xs font-bold'
-                : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-750'
-            }`}
-            title="Klik untuk melihat semua status pesanan"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors cursor-pointer ${statusFilter === 'all' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'}`}
+            title="Tampilkan semua status pesanan"
           >
-            <span className="text-[10px] font-bold uppercase tracking-tight">Total:</span>
-            <span className="text-xs font-black font-nominal text-slate-900 dark:text-slate-100">{dashboardMetrics.totalTrx}</span>
+            Semua <span className="font-black font-nominal">{dashboardMetrics.totalTrx}</span>
           </button>
-
-          {/* 2. Delivery Hijau */}
           <button
             type="button"
+            aria-pressed={statusFilter === 'delivered'}
             onClick={() => setStatusFilter((prev) => (prev === 'delivered' ? 'all' : 'delivered'))}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border shrink-0 transition-all cursor-pointer min-h-[38px] ${
-              statusFilter === 'delivered'
-                ? 'bg-emerald-100 dark:bg-emerald-900/80 border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-500/40 text-emerald-900 dark:text-emerald-100 shadow-2xs font-bold'
-                : 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700/80 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/50 shadow-2xs'
-            }`}
-            title="Klik untuk filter hanya pesanan Delivery Selesai (Hijau)"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors cursor-pointer ${statusFilter === 'delivered' ? 'bg-emerald-600 text-white shadow-xs' : 'text-emerald-800 dark:text-emerald-300 hover:bg-white dark:hover:bg-slate-700'}`}
+            title="Filter pesanan yang sudah delivery"
           >
-            <Truck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span className="text-[10px] font-black uppercase tracking-tight">Delivery:</span>
-            <span className="text-xs font-black font-nominal">{dashboardMetrics.deliveredTrx}</span>
+            Delivery <span className="font-black font-nominal">{dashboardMetrics.deliveredTrx}</span>
           </button>
-
-          {/* 3. Pending Merah */}
           <button
             type="button"
+            aria-pressed={statusFilter === 'pending'}
             onClick={() => setStatusFilter((prev) => (prev === 'pending' ? 'all' : 'pending'))}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border shrink-0 transition-all cursor-pointer min-h-[38px] ${
-              statusFilter === 'pending'
-                ? 'bg-rose-100 dark:bg-rose-900/80 border-rose-500 dark:border-rose-400 ring-2 ring-rose-500/40 text-rose-900 dark:text-rose-100 shadow-2xs font-bold'
-                : dashboardMetrics.pendingTrx > 0
-                ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-700/80 text-rose-800 dark:text-rose-200 hover:bg-rose-100/70 dark:hover:bg-rose-900/50 shadow-2xs'
-                : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-750'
-            }`}
-            title="Klik untuk filter hanya pesanan Pending (Merah)"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors cursor-pointer ${statusFilter === 'pending' ? 'bg-rose-600 text-white shadow-xs' : 'text-rose-800 dark:text-rose-300 hover:bg-white dark:hover:bg-slate-700'}`}
+            title="Filter pesanan yang masih pending"
           >
-            <Clock className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-            <span className="text-[10px] font-black uppercase tracking-tight">Pending:</span>
-            <span className="text-xs font-black font-nominal">{dashboardMetrics.pendingTrx}</span>
+            Pending <span className="font-black font-nominal">{dashboardMetrics.pendingTrx}</span>
           </button>
         </div>
+        <span className="text-[10px] text-slate-500 dark:text-slate-400 px-1">
+          {dashboardMetrics.displayedItems} barang · {dashboardMetrics.displayedTrx} nota
+        </span>
       </div>
 
       {/* Orders Table View */}
