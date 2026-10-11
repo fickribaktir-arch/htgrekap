@@ -377,10 +377,6 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
         </div>
       </div>
 
-      <div className="-mt-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
-        {dashboardMetrics.displayedItems} barang · {dashboardMetrics.displayedTrx} nota
-      </div>
-
       {/* Orders Table View */}
       <OrdersTableView
         orders={displayedOrders}

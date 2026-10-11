@@ -155,6 +155,8 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
     pendingTrx: pendingBatches,
     paidTrx: paidBatches,
     unpaidTrx: unpaidBatches,
+    displayedItems,
+    displayedTrx,
     totalPenjualan,
     totalPengeluaran,
     totalCashback,
@@ -365,6 +367,7 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
                 <div className="px-1"><span className="text-[9px] font-medium text-slate-500 dark:text-slate-400 block">Delivery</span><div className="text-xl md:text-base lg:text-lg font-bold tracking-tight text-emerald-700 dark:text-emerald-300"><AnimatedCounter value={deliveredBatches} format="number" /><span className="ml-1 text-[9px] font-medium text-slate-400">trx</span></div></div>
                 <div className="px-1"><span className="text-[9px] font-medium text-slate-500 dark:text-slate-400 block">Pending</span><div className={`text-xl md:text-base lg:text-lg font-bold tracking-tight ${pendingBatches > 0 ? 'text-rose-700 dark:text-rose-300' : 'text-slate-700 dark:text-slate-300'}`}><AnimatedCounter value={pendingBatches} format="number" /><span className="ml-1 text-[9px] font-medium text-slate-400">trx</span></div></div>
               </div>
+              <div className="text-center text-[9px] font-medium text-slate-400 dark:text-slate-500">{displayedItems} barang · {displayedTrx} nota</div>
             </div>
           </div>
           {/* Right Column: HIGHLIGHT FOLLOW UP */}
