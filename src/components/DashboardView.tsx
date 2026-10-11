@@ -35,7 +35,8 @@ import { DateFilterPill, DateFilterValue, getThisWeekRange, getThisMonthRange } 
 import { 
   filterOrdersByStatus, 
   computeAndValidateDashboardSummary, 
-  DashboardStatusFilter 
+  DashboardStatusFilter,
+  DashboardSummaryMetrics,
 } from '../lib/orderValidation';
 
 export type TimeFilterOption = 'all_time' | 'hari_ini' | 'mingguan' | 'bulan_ini';
@@ -69,6 +70,7 @@ interface DashboardViewProps {
   onPeriodChange?: (period: DashboardPeriod) => void;
   operationalExpenses?: OperationalExpense[];
   onNavigateToExpenses?: () => void;
+  onFinancialMetricsChange?: (metrics: DashboardSummaryMetrics) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
@@ -80,6 +82,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
   onPeriodChange,
   operationalExpenses = [],
   onNavigateToExpenses,
+  onFinancialMetricsChange,
   onUpdatePaymentStatus,
   onUpdateDeliveryStatus,
   onUpdateGroupPaymentStatus,
@@ -145,8 +148,9 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     }
   };
 
-  // Filter orders according to dateFilter, store, kitchen, and search (Base Filtered)
-  const baseFilteredOrders = useMemo(() => {
+  // Shared financial scope follows date, store, and kitchen selections. Search
+  // and delivery status only narrow the table, not the headline totals.
+  const scopeFilteredOrders = useMemo(() => {
     return orders.filter((item) => {
       // 1. Filter Rentang Tanggal Langsung (Default: Kosong = All Time)
       if (dateFilter.startDate || dateFilter.endDate) {
@@ -159,28 +163,12 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
       }
       // Kosong -> lolos semua tanggal (ALL TIME)
 
-      // 2. Search query
-      const q = searchQuery.toLowerCase().trim();
-      if (q) {
-        const invNum = ((item.invoiceNumber || (item as any).invoice_number || '') as string).toLowerCase();
-        const notaId = ((item.notaId || (item as any).nota_id || '') as string).toLowerCase();
-        const matchesSearch =
-          item.namaBarang.toLowerCase().includes(q) ||
-          item.pemasok.toLowerCase().includes(q) ||
-          item.toko.toLowerCase().includes(q) ||
-          item.tujuanDapur.toLowerCase().includes(q) ||
-          invNum.includes(q) ||
-          notaId.includes(q) ||
-          (item.catatan && item.catatan.toLowerCase().includes(q));
-        if (!matchesSearch) return false;
-      }
-
-      // 3. Store filter
+      // Store filter
       if (selectedStoreFilter !== 'all' && item.toko !== selectedStoreFilter) {
         return false;
       }
 
-      // 4. Kitchen filter
+      // Kitchen filter
       if (selectedKitchenFilter !== 'all' && item.tujuanDapur !== selectedKitchenFilter) {
         return false;
       }
@@ -190,10 +178,24 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
   }, [
     orders,
     dateFilter,
-    searchQuery,
     selectedStoreFilter,
     selectedKitchenFilter,
   ]);
+
+  const baseFilteredOrders = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return scopeFilteredOrders;
+    return scopeFilteredOrders.filter((item) => {
+      const invNum = ((item.invoiceNumber || (item as any).invoice_number || '') as string).toLowerCase();
+      const notaId = ((item.notaId || (item as any).nota_id || '') as string).toLowerCase();
+      return item.namaBarang.toLowerCase().includes(q) ||
+        item.pemasok.toLowerCase().includes(q) ||
+        item.toko.toLowerCase().includes(q) ||
+        item.tujuanDapur.toLowerCase().includes(q) ||
+        invNum.includes(q) || notaId.includes(q) ||
+        Boolean(item.catatan && item.catatan.toLowerCase().includes(q));
+    });
+  }, [scopeFilteredOrders, searchQuery]);
 
   // Orders filtered additionally by active status filter (Strict Data Validation Check)
   const displayedOrders = useMemo(() => {
@@ -251,6 +253,20 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
       totalBiayaOperasional
     );
   }, [baseFilteredOrders, displayedOrders, statusFilter, totalBiayaOperasional]);
+
+  const financialMetrics = useMemo(() => {
+    const financialOrders = scopeFilteredOrders.filter((item) => item.status !== 'CANCELLED');
+    return computeAndValidateDashboardSummary(
+      financialOrders,
+      financialOrders,
+      'all',
+      totalBiayaOperasional
+    );
+  }, [scopeFilteredOrders, totalBiayaOperasional]);
+
+  useEffect(() => {
+    onFinancialMetricsChange?.(financialMetrics);
+  }, [financialMetrics, onFinancialMetricsChange]);
 
   return (
     <div className="space-y-3 pt-1 pb-36 sm:pb-24 font-sans text-slate-800 dark:text-slate-200 transition-colors duration-200">

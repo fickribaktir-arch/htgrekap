@@ -56,6 +56,7 @@ import {
   fetchAuthStatus, 
   AuthStatusResponse 
 } from './lib/authService';
+import { DashboardSummaryMetrics } from './lib/orderValidation';
 
 export default function App() {
   // Pure in-memory orders and invoices state populated from Supabase as single source of truth
@@ -68,6 +69,23 @@ export default function App() {
   const [notes, setNotes] = useLocalStorage<NoteItem[]>('dapur_highlight_notes_v1', []);
   const [dashboardPeriod, setDashboardPeriod] = useLocalStorage<DashboardPeriod>('dapur_dashboard_period_v3', 'all_time');
   const [operationalExpenses, setOperationalExpenses] = useState<OperationalExpense[]>([]);
+  const [dashboardFinancialMetrics, setDashboardFinancialMetrics] = useState<DashboardSummaryMetrics>({
+    totalTrx: 0,
+    deliveredTrx: 0,
+    pendingTrx: 0,
+    paidTrx: 0,
+    unpaidTrx: 0,
+    totalItems: 0,
+    displayedTrx: 0,
+    displayedItems: 0,
+    totalPenjualan: 0,
+    totalPengeluaran: 0,
+    totalCashback: 0,
+    biayaOperasional: 0,
+    totalLabaBersih: 0,
+    isValid: true,
+    discrepancies: [],
+  });
 
   // Auth & PIN State (Terkoneksi langsung ke Supabase tanpa plain text di web)
   const [authStatus, setAuthStatus] = useState<AuthStatusResponse | null>(null);
@@ -500,14 +518,9 @@ export default function App() {
       {/* Top Header Banner */}
       {activeTab === 'dashboard' && (
         <HeaderBanner
-          orders={orders}
           selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
           notes={notes}
-          kitchens={kitchens}
-          period={dashboardPeriod}
-          onPeriodChange={setDashboardPeriod}
-          operationalExpenses={operationalExpenses}
+          dashboardMetrics={dashboardFinancialMetrics}
           onToggleNoteStatus={handleToggleNoteStatus}
           onFollowUpNote={handleOpenFollowUpNote}
           onOpenNewNoteSheet={() => setIsNoteSheetOpen(true)}
@@ -549,6 +562,7 @@ export default function App() {
                   period={dashboardPeriod}
                   onPeriodChange={setDashboardPeriod}
                   operationalExpenses={operationalExpenses}
+                  onFinancialMetricsChange={setDashboardFinancialMetrics}
                   onNavigateToExpenses={() => handleTabChange('pengeluaran')}
                   onToggleStatus={handleToggleStatus}
                   onUpdatePaymentStatus={handleUpdatePaymentStatus}

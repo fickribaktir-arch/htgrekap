@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { 
-  Settings, 
-  ShoppingBag, 
+import {
+  Settings,
+  ShoppingBag,
   AlertCircle,
   Download,
   Loader2,
@@ -21,8 +20,6 @@ import {
   Truck,
   Calendar,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Lock,
   X,
   Trash2,
@@ -33,31 +30,16 @@ import {
   TrendingUp,
   Banknote
 } from 'lucide-react';
-import { OrderItem, NoteItem, Kitchen, DashboardPeriod, OperationalExpense } from '../types';
-import { 
-  parseIndonesianNumber, 
-  formatRupiah, 
-  parseDateSafe, 
-  isOrderToday, 
-  isOrderThisMonth,
-  isOrderThisWeek,
-  getWeekRange,
-  formatTanggalWeb,
-  formatTanggalSimple,
-  getTodayWIB
-} from '../lib/formatters';
+import { NoteItem } from '../types';
+import { parseDateSafe, formatTanggalWeb, formatTanggalSimple, getTodayWIB } from '../lib/formatters';
+import { DashboardSummaryMetrics } from '../lib/orderValidation';
 import { AnimatedCounter } from './AnimatedCounter';
 import { ThemeToggle } from './ThemeToggle';
 
 interface HeaderBannerProps {
-  orders: OrderItem[];
   selectedDate: string;
-  onDateChange?: (date: string) => void;
   notes: NoteItem[];
-  kitchens: Kitchen[];
-  period?: DashboardPeriod;
-  onPeriodChange?: (period: DashboardPeriod) => void;
-  operationalExpenses?: OperationalExpense[];
+  dashboardMetrics: DashboardSummaryMetrics;
   onToggleNoteStatus: (noteId: string) => void;
   onFollowUpNote?: (note: NoteItem) => void;
   onOpenNewNoteSheet: () => void;
@@ -76,14 +58,9 @@ interface HeaderBannerProps {
 }
 
 export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
-  orders = [],
   selectedDate,
-  onDateChange,
   notes = [],
-  kitchens = [],
-  period: periodProp,
-  onPeriodChange,
-  operationalExpenses = [],
+  dashboardMetrics,
   onToggleNoteStatus,
   onFollowUpNote,
   onOpenNewNoteSheet,
@@ -100,63 +77,6 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
   pendingSyncCount = 0,
   isOnline = true,
 }) => {
-  // Default to 'all_time' if uncontrolled
-  const [internalPeriod, setInternalPeriod] = useState<DashboardPeriod>('all_time');
-  const activePeriod = periodProp ?? internalPeriod;
-  const handleSetPeriod = (newP: DashboardPeriod) => {
-    if (onPeriodChange) {
-      onPeriodChange(newP);
-    } else {
-      setInternalPeriod(newP);
-    }
-  };
-
-  const [customRange, setCustomRange] = useState<{ startDate: string; endDate: string }>({
-    startDate: '',
-    endDate: '',
-  });
-
-  const handlePrevDay = () => {
-    const d = new Date(`${selectedDate || getTodayWIB()}T00:00:00`);
-    d.setDate(d.getDate() - 1);
-    onDateChange?.(d.toISOString().slice(0, 10));
-  };
-
-  const handleNextDay = () => {
-    const d = new Date(`${selectedDate || getTodayWIB()}T00:00:00`);
-    d.setDate(d.getDate() + 1);
-    onDateChange?.(d.toISOString().slice(0, 10));
-  };
-
-  const handleToday = () => {
-    const today = getTodayWIB();
-    onDateChange?.(today);
-  };
-
-  const handlePrevWeek = () => {
-    const d = new Date(`${selectedDate || getTodayWIB()}T00:00:00`);
-    d.setDate(d.getDate() - 7);
-    onDateChange?.(d.toISOString().slice(0, 10));
-  };
-
-  const handleNextWeek = () => {
-    const d = new Date(`${selectedDate || getTodayWIB()}T00:00:00`);
-    d.setDate(d.getDate() + 7);
-    onDateChange?.(d.toISOString().slice(0, 10));
-  };
-
-  const handlePrevMonth = () => {
-    const d = new Date(`${selectedDate || getTodayWIB()}T00:00:00`);
-    d.setMonth(d.getMonth() - 1);
-    onDateChange?.(d.toISOString().slice(0, 10));
-  };
-
-  const handleNextMonth = () => {
-    const d = new Date(`${selectedDate || getTodayWIB()}T00:00:00`);
-    d.setMonth(d.getMonth() + 1);
-    onDateChange?.(d.toISOString().slice(0, 10));
-  };
-
   // Data konversi lama tetap tersimpan untuk audit, tetapi bukan lagi antrean Follow Up.
   const followUpNotes = useMemo(
     () => notes.filter((note) => !note.orderId && String(note.status || '').toLowerCase() !== 'completed'),
@@ -229,198 +149,23 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
     });
   };
 
-  const weekRange = useMemo(() => getWeekRange(selectedDate), [selectedDate]);
-
-  // Filter orders according to active period selection with robust date & WIB parsing
-  const filteredOrders = useMemo(() => {
-    if (!orders || orders.length === 0) return [];
-    
-    // Exclude cancelled orders from dashboard header counts and metrics
-    const nonCancelled = orders.filter((o) => o.status !== 'CANCELLED');
-
-    if (activePeriod === 'all_time') {
-      return nonCancelled;
-    }
-
-    if (activePeriod === 'custom') {
-      if (customRange.startDate || customRange.endDate) {
-        return nonCancelled.filter((o) => {
-          const itemDate = o.tanggal || (o.createdAt ? o.createdAt.split('T')[0] : '');
-          if (!itemDate) return false;
-          if (customRange.startDate && itemDate < customRange.startDate) return false;
-          if (customRange.endDate && itemDate > customRange.endDate) return false;
-          return true;
-        });
-      }
-      return nonCancelled;
-    }
-
-    if (activePeriod === 'hari_ini') {
-      return nonCancelled.filter((o) => isOrderToday(o, selectedDate));
-    } else if (activePeriod === 'mingguan') {
-      return nonCancelled.filter((o) => isOrderThisWeek(o, weekRange));
-    } else if (activePeriod === 'bulan_ini') {
-      return nonCancelled.filter((o) => isOrderThisMonth(o, selectedDate));
-    }
-
-    return nonCancelled;
-  }, [orders, activePeriod, selectedDate, weekRange, customRange]);
-
-  const activePeriodDescription = useMemo(() => {
-    if (activePeriod === 'all_time') {
-      return 'Semua Data (All Time)';
-    }
-    if (activePeriod === 'custom') {
-      if (customRange.startDate && customRange.endDate) {
-        if (customRange.startDate === customRange.endDate) {
-          return formatTanggalSimple(customRange.startDate);
-        }
-        return `${formatTanggalSimple(customRange.startDate)} s/d ${formatTanggalSimple(customRange.endDate)}`;
-      }
-      if (customRange.startDate) return `Dari ${formatTanggalSimple(customRange.startDate)}`;
-      if (customRange.endDate) return `Sampai ${formatTanggalSimple(customRange.endDate)}`;
-      return 'Pilih Rentang Tanggal';
-    }
-    if (activePeriod === 'hari_ini') {
-      return formatTanggalWeb(selectedDate);
-    }
-    if (activePeriod === 'mingguan') {
-      return `Minggu: ${formatTanggalSimple(weekRange.start)} - ${formatTanggalSimple(weekRange.end)}`;
-    }
-    if (activePeriod === 'bulan_ini') {
-      try {
-        const d = new Date(`${selectedDate}T00:00:00`);
-        return d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-      } catch {
-        return selectedDate.slice(0, 7);
-      }
-    }
-    return '';
-  }, [activePeriod, selectedDate, weekRange, customRange]);
-
-  // Dynamic memoized calculations for operational metrics: Penjualan, Beli, Cashback, Biaya Operasional, Estimasi Laba, Total Pesanan, Delivery (Selesai), & Pending
-  const { totalBatches, deliveredBatches, pendingBatches, paidBatches, unpaidBatches, totalLabaBersih, totalPengeluaran, totalPenjualan, totalCashback, biayaOperasional } = useMemo(() => {
-    let labaBersih = 0;
-    let pengeluaran = 0;
-    let penjualan = 0;
-    let cashback = 0;
-    const batchMap = new Map<string, { allPaid: boolean; allDone: boolean }>();
-
-    for (let i = 0; i < filteredOrders.length; i++) {
-      const item = filteredOrders[i];
-
-      // Acuan status pembayaran dan pengiriman
-      const isPaid =
-        item.paymentStatus === 'PAID' ||
-        item.status_pembayaran?.toUpperCase() === 'PAID' ||
-        (item.status === 'selesai' && !item.paymentStatus);
-      const isDone =
-        item.deliveryStatus === 'DONE' ||
-        item.status_pengiriman?.toUpperCase() === 'DONE' ||
-        (item.status === 'selesai' && !item.deliveryStatus);
-
-      // Group per keberangkatan (trx) sesuai acuan tabel pesanan (nota_id atau tanggal + tujuan dapur + toko)
-      const batchKey = item.notaId || item.nota_id || `${item.tanggal}||${item.tujuanDapur}||${item.toko}`;
-
-      if (!batchMap.has(batchKey)) {
-        batchMap.set(batchKey, { allPaid: isPaid, allDone: isDone });
-      } else {
-        const batch = batchMap.get(batchKey)!;
-        if (!isPaid) batch.allPaid = false;
-        if (!isDone) batch.allDone = false;
-      }
-
-      const rawQtyJual = parseIndonesianNumber(item.qty);
-      const rawQtyBeli = (item as any).qtyBeli !== undefined && (item as any).qtyBeli !== null
-        ? parseIndonesianNumber((item as any).qtyBeli)
-        : ((item as any).qty_beli !== undefined && (item as any).qty_beli !== null
-          ? parseIndonesianNumber((item as any).qty_beli)
-          : rawQtyJual);
-      const returQty = Math.max(0, Number(item.retur) || 0);
-      const qtyFinal = Math.max(0, rawQtyJual - returQty);
-      const qtyBeliEfektif = Math.max(0, rawQtyBeli - returQty);
-      const beli = parseIndonesianNumber(item.hargaBeli);
-      const jual = parseIndonesianNumber(item.hargaJual);
-      const cb = parseIndonesianNumber(item.cashback);
-      const modalItem = qtyBeliEfektif * beli; // Harga beli ke pemasok
-      const omzetItem = qtyFinal * jual;
-      const labaItem = cb > 0 ? ((cb - beli) * qtyFinal) : (omzetItem - modalItem);
-      const cashbackItem = cb > 0 ? (jual >= cb ? (jual - cb) * qtyFinal : cb * qtyFinal) : 0;
-
-      labaBersih += labaItem;
-      pengeluaran += modalItem;
-      penjualan += omzetItem;
-      cashback += cashbackItem;
-    }
-
-    let deliveredCount = 0;
-    let pendingCount = 0;
-    let paidCount = 0;
-    let unpaidCount = 0;
-
-    batchMap.forEach((batch) => {
-      // Status pengiriman pesanan:
-      // Delivery (Hijau) = allDone (sudah sampai/selesai kirim)
-      // Pending (Merah) = belum selesai kirim
-      if (batch.allDone) {
-        deliveredCount++;
-      } else {
-        pendingCount++;
-      }
-
-      // Status pembayaran pesanan:
-      if (batch.allPaid) {
-        paidCount++;
-      } else {
-        unpaidCount++;
-      }
-    });
-
-    // Biaya Operasional Sesuai Periode Header
-    const filteredExpenses = (operationalExpenses || []).filter((item) => {
-      const itemDate = item.tanggal || (item.createdAt ? item.createdAt.split('T')[0] : '');
-      if (!itemDate) return false;
-      if (activePeriod === 'all_time') return true;
-      if (activePeriod === 'custom') {
-        if (customRange.startDate && itemDate < customRange.startDate) return false;
-        if (customRange.endDate && itemDate > customRange.endDate) return false;
-        return true;
-      }
-      if (activePeriod === 'hari_ini') {
-        return itemDate === selectedDate;
-      }
-      if (activePeriod === 'mingguan') {
-        return itemDate >= weekRange.start && itemDate <= weekRange.end;
-      }
-      if (activePeriod === 'bulan_ini') {
-        return itemDate.slice(0, 7) === selectedDate.slice(0, 7);
-      }
-      return true;
-    });
-
-    const biayaOperasional = filteredExpenses.reduce((sum, item) => sum + (Number(item.nominal) || 0), 0);
-    // Laba Bersih = Total Penjualan - Pengeluaran (Beli) - Total Cashback - Biaya Operasional
-    const finalLabaBersih = labaBersih - biayaOperasional;
-
-    return {
-      totalBatches: batchMap.size,
-      deliveredBatches: deliveredCount,
-      pendingBatches: pendingCount,
-      paidBatches: paidCount,
-      unpaidBatches: unpaidCount,
-      totalPenjualan: penjualan,
-      totalCashback: cashback,
-      totalLabaBersih: finalLabaBersih,
-      totalPengeluaran: pengeluaran,
-      biayaOperasional,
-    };
-  }, [filteredOrders, operationalExpenses, activePeriod, customRange, selectedDate, weekRange]);
+  const {
+    totalTrx: totalBatches,
+    deliveredTrx: deliveredBatches,
+    pendingTrx: pendingBatches,
+    paidTrx: paidBatches,
+    unpaidTrx: unpaidBatches,
+    totalPenjualan,
+    totalCashback,
+    totalLabaBersih,
+    biayaOperasional,
+  } = dashboardMetrics;
 
   return (
     <header className="no-print px-3 sm:px-6 lg:px-8 pt-3 pb-2 max-w-7xl xl:max-w-[1536px] mx-auto w-full font-sans">
       {/* Claymorphism Semi-Glass Main Container */}
       <div className="bg-white/95 dark:bg-slate-900/95 border border-white/90 dark:border-slate-800 p-3 sm:p-4 rounded-3xl shadow-[0_8px_24px_rgba(166,180,200,0.25)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] space-y-3 transition-colors duration-200">
-        
+
         {/* Top Header Bar with Brand & Actions */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-b border-slate-200/80 dark:border-slate-800 pb-2.5">
           {/* Brand & Logo */}
@@ -486,37 +231,7 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
 
           {/* Right Section: Filter Switcher & Desktop Action Buttons */}
           <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
-            {/* Segmented Control Filter Periode with Sliding Pill Animation */}
-            <div className="relative flex items-center bg-slate-200/80 dark:bg-slate-800/80 p-1 rounded-full border border-slate-300/70 dark:border-slate-700 shadow-inner w-full sm:w-auto justify-between sm:justify-start">
-              {[
-                { id: 'hari_ini' as const, label: 'Hari Ini' },
-                { id: 'mingguan' as const, label: 'Mingguan' },
-                { id: 'bulan_ini' as const, label: 'Bulanan' },
-                { id: 'all_time' as const, label: 'All Time' },
-                { id: 'custom' as const, label: 'Kustom' },
-              ].map((opt) => {
-                const isActive = activePeriod === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => handleSetPeriod(opt.id)}
-                    className={`relative flex-1 sm:flex-none px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs font-bold transition-colors duration-200 whitespace-nowrap text-center cursor-pointer select-none ${
-                      isActive ? 'text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-                    }`}
-                  >
-                    {isActive && (
-                      <motion.div
-                        layoutId="activePeriodPill"
-                        className="absolute inset-0 bg-indigo-600 rounded-full shadow-sm shadow-indigo-600/30"
-                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                      />
-                    )}
-                    <span className="relative z-10">{opt.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+
 
             {/* Desktop Action Buttons: Dark Mode | Download | Settings */}
             <div className="hidden sm:flex items-center gap-1.5">
@@ -567,383 +282,72 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
           </div>
         </div>
 
-        {/* Sub-Header: Filter Tanggal & Periode Aktif */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/90 dark:border-slate-700/80">
-          {/* Label Periode Aktif */}
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-6 h-6 rounded-lg bg-indigo-500/10 dark:bg-indigo-400/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-              <Calendar className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                Filter Tanggal:
-              </span>
-              <span className="text-xs font-black text-indigo-700 dark:text-indigo-300">
-                {activePeriodDescription}
-              </span>
-            </div>
-          </div>
-
-          {/* Controls: Input Tanggal / Rentang & Navigasi Cepat */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {activePeriod === 'custom' ? (
-              <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
-                <span className="text-[10px] font-bold text-slate-400 select-none">Mulai:</span>
-                <input
-                  type="date"
-                  value={customRange.startDate}
-                  onChange={(e) => setCustomRange((prev) => ({ ...prev, startDate: e.target.value }))}
-                  className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
-                  title="Tanggal Mulai"
-                  aria-label="Tanggal Mulai"
-                />
-                <span className="text-[10px] font-bold text-slate-400 select-none">s/d</span>
-                <span className="text-[10px] font-bold text-slate-400 select-none">Berakhir:</span>
-                <input
-                  type="date"
-                  value={customRange.endDate}
-                  min={customRange.startDate || undefined}
-                  onChange={(e) => setCustomRange((prev) => ({ ...prev, endDate: e.target.value }))}
-                  className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
-                  title="Tanggal Berakhir"
-                  aria-label="Tanggal Berakhir"
-                />
-                {(customRange.startDate || customRange.endDate) && (
-                  <button
-                    type="button"
-                    onClick={() => setCustomRange({ startDate: '', endDate: '' })}
-                    className="p-0.5 rounded-full text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer"
-                    title="Reset Rentang"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            ) : activePeriod === 'bulan_ini' ? (
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={handlePrevMonth}
-                  className="p-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                  title="Bulan Sebelumnya"
-                  aria-label="Bulan Sebelumnya"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <input
-                    type="month"
-                    value={selectedDate.slice(0, 7)}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        onDateChange?.(`${e.target.value}-01`);
-                      }
-                    }}
-                    className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
-                    title="Pilih Bulan"
-                    aria-label="Pilih Bulan"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleNextMonth}
-                  className="p-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                  title="Bulan Berikutnya"
-                  aria-label="Bulan Berikutnya"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleToday}
-                  className="px-2 py-1 rounded-xl text-[10px] font-bold bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:border-indigo-400 cursor-pointer"
-                >
-                  Bulan Ini
-                </button>
-              </div>
-            ) : activePeriod === 'mingguan' ? (
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={handlePrevWeek}
-                  className="p-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                  title="Minggu Sebelumnya"
-                  aria-label="Minggu Sebelumnya"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        onDateChange?.(e.target.value);
-                      }
-                    }}
-                    className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
-                    title="Pilih Tanggal Acuan Minggu"
-                    aria-label="Pilih Tanggal Acuan Minggu"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleNextWeek}
-                  className="p-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                  title="Minggu Berikutnya"
-                  aria-label="Minggu Berikutnya"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleToday}
-                  className="px-2 py-1 rounded-xl text-[10px] font-bold bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:border-indigo-400 cursor-pointer"
-                >
-                  Minggu Ini
-                </button>
-              </div>
-            ) : activePeriod === 'hari_ini' ? (
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={handlePrevDay}
-                  className="p-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                  title="Hari Sebelumnya"
-                  aria-label="Hari Sebelumnya"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        onDateChange?.(e.target.value);
-                      }
-                    }}
-                    className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
-                    title="Pilih Tanggal"
-                    aria-label="Pilih Tanggal"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleNextDay}
-                  className="p-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                  title="Hari Berikutnya"
-                  aria-label="Hari Berikutnya"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleToday}
-                  className="px-2 py-1 rounded-xl text-[10px] font-bold bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:border-indigo-400 cursor-pointer"
-                >
-                  Hari Ini
-                </button>
-              </div>
-            ) : (
-              /* All Time */
-              <div className="flex items-center gap-1.5">
-                <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <span className="text-[10px] font-bold text-slate-400 select-none">Pilih Tanggal:</span>
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        onDateChange?.(e.target.value);
-                        handleSetPeriod('hari_ini');
-                      }
-                    }}
-                    className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
-                    title="Pilih tanggal untuk melihat data hari tersebut"
-                    aria-label="Pilih Tanggal"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
 
         {/* SUB-ROW: Status Operasional & Follow Up Notes */}
         <div className="grid grid-cols-1 gap-2.5">
           {/* Left: Status Operasional (Total Penjualan - Pengeluaran Beli - Total Cashback - Biaya Operasional - Laba Bersih - Status Pemesanan) */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-            {/* 1. Box Total Penjualan (Omset) */}
-            <div className="bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/90 dark:border-indigo-800/60 rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-2xs transition-colors duration-200">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center border border-indigo-600 shadow-xs flex-shrink-0">
-                  <TrendingUp className="w-3.5 h-3.5" />
-                </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-2.5">
+            <div className="sm:col-span-2 xl:col-span-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2.5">
+              <div className="min-h-[82px] bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/90 dark:border-indigo-800/60 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-2xs">
+                <div className="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0"><TrendingUp className="w-5 h-5" /></div>
                 <div className="min-w-0">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-800 dark:text-indigo-300 block truncate">
-                    Total Penjualan
-                  </span>
-                  <span className="text-xs sm:text-sm font-black font-nominal text-indigo-950 dark:text-indigo-100 leading-none truncate block">
-                    <AnimatedCounter value={totalPenjualan} format="rupiah" />
-                  </span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-800 dark:text-indigo-300 block">Total Penjualan</span>
+                  <span className="text-lg sm:text-xl font-black font-nominal text-indigo-950 dark:text-indigo-100 leading-tight truncate block"><AnimatedCounter value={totalPenjualan} format="rupiah" /></span>
                 </div>
               </div>
-            </div>
 
-            {/* 2. Box Pengeluaran PO (Harga Beli ke Pemasok) */}
-            <div className="bg-slate-50/90 dark:bg-slate-800/70 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-2xs transition-colors duration-200">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-xl bg-slate-600 dark:bg-slate-500 text-white flex items-center justify-center border border-slate-600 dark:border-slate-500 shadow-xs flex-shrink-0">
-                  <Receipt className="w-3.5 h-3.5" />
-                </div>
+              <button type="button" onClick={onOpenRekap} aria-label="Buka Rekap dari Laba Bersih" title="Buka Rekap" className="min-h-[82px] w-full bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/90 dark:border-emerald-800/60 rounded-2xl px-4 py-3 flex items-center gap-3 text-left shadow-2xs hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/70 transition-colors cursor-pointer">
+                <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0"><CheckCircle2 className="w-5 h-5" /></div>
                 <div className="min-w-0">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block truncate">
-                    Pengeluaran (Beli)
-                  </span>
-                  <span className="text-xs sm:text-sm font-black font-nominal text-slate-900 dark:text-slate-100 leading-none truncate block">
-                    <AnimatedCounter value={totalPengeluaran} format="rupiah" />
-                  </span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block">Laba Bersih</span>
+                  <span className={`text-lg sm:text-xl font-black font-nominal leading-tight truncate block ${totalLabaBersih >= 0 ? 'text-emerald-950 dark:text-emerald-100' : 'text-rose-700 dark:text-rose-300'}`}><AnimatedCounter value={totalLabaBersih} format="rupiah" /></span>
                 </div>
-              </div>
-            </div>
-
-            {/* 3. Box Total Cashback (Koperasi) */}
-            <div className="bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-2xs transition-colors duration-200">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-xl bg-amber-600 text-white flex items-center justify-center border border-amber-600 shadow-xs flex-shrink-0">
-                  <Tag className="w-3.5 h-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 block truncate">
-                    Total Cashback
-                  </span>
-                  <span className="text-xs sm:text-sm font-black font-nominal text-amber-950 dark:text-amber-100 leading-none truncate block">
-                    <AnimatedCounter value={totalCashback} format="rupiah" />
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* 4. Box Biaya Operasional (BBM, Gaji, Listrik, dll) */}
-            <button 
-              type="button" 
-              onClick={onOpenExpenses} 
-              aria-label="Buka Pengeluaran Operasional" 
-              title={onOpenExpenses ? "Klik untuk melihat rincian Pengeluaran Operasional" : "Biaya Operasional"} 
-              className={`w-full bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200/90 dark:border-rose-800/60 rounded-2xl p-2 sm:p-2.5 flex items-center justify-between text-left shadow-2xs transition-colors duration-200 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 ${
-                onOpenExpenses ? 'cursor-pointer' : ''
-              }`}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-xl bg-rose-600 text-white flex items-center justify-center border border-rose-600 shadow-xs flex-shrink-0">
-                  <Banknote className="w-3.5 h-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 block truncate">
-                    Biaya Operasional
-                  </span>
-                  <span className="text-xs sm:text-sm font-black font-nominal text-rose-950 dark:text-rose-100 leading-none truncate block">
-                    <AnimatedCounter value={biayaOperasional} format="rupiah" />
-                  </span>
-                </div>
-              </div>
-            </button>
-
-            {/* 5. Box Estimasi Laba Bersih */}
-            <button type="button" onClick={onOpenRekap} aria-label="Buka Rekap dari Laba Bersih" title="Buka Rekap" className="w-full bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/90 dark:border-emerald-800/60 rounded-2xl p-2 sm:p-2.5 flex items-center justify-between text-left shadow-2xs transition-colors duration-200 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 cursor-pointer">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center border border-emerald-600 shadow-xs flex-shrink-0">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block truncate">
-                    Laba Bersih
-                  </span>
-                  <span className={`text-xs sm:text-sm font-black font-nominal leading-none truncate block ${
-                    totalLabaBersih >= 0 ? 'text-emerald-950 dark:text-emerald-100' : 'text-rose-700 dark:text-rose-300'
-                  }`}>
-                    <AnimatedCounter value={totalLabaBersih} format="rupiah" />
-                  </span>
-                </div>
-              </div>
-            </button>
-
-            {/* 6. Satu Blok Status Pemesanan Terpadu (col-span-2 sm:col-span-1 lg:col-span-1) */}
-            <div className="col-span-2 sm:col-span-1 lg:col-span-1 bg-white dark:bg-slate-800/90 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl p-2 sm:p-2.5 shadow-2xs transition-colors duration-200 flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-slate-100 dark:border-slate-700/60">
-                <div className="flex items-center gap-1.5">
-                  <ShoppingBag className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                    Status Pemesanan
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-[9.5px] font-semibold text-slate-400 dark:text-slate-500">
-                  <span>Lunas: <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{paidBatches}</strong></span>
-                  <span>•</span>
-                  <span>Belum: <strong className="text-amber-600 dark:text-amber-400 font-bold">{unpaidBatches}</strong></span>
-                </div>
-              </div>
-
-              {/* 3 Informasi Utama: Total, Delivery Selesai (Hijau), Pending (Merah) */}
-              <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-center">
-                {/* Info 1: Total Pesanan */}
-                <div className="bg-slate-50 dark:bg-slate-900/60 rounded-xl py-1 px-1.5 border border-slate-200/70 dark:border-slate-700/60 flex flex-col justify-center">
-                  <span className="text-[8.5px] sm:text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight block">
-                    Total
-                  </span>
-                  <div className="text-xs sm:text-sm font-black font-nominal text-slate-900 dark:text-slate-100 leading-tight">
-                    <AnimatedCounter value={totalBatches} format="number" /> <span className="text-[9px] font-medium text-slate-400 dark:text-slate-500">trx</span>
-                  </div>
-                </div>
-
-                {/* Info 2: Delivery Selesai (Hijau) */}
-                <div className="bg-emerald-50/90 dark:bg-emerald-950/50 rounded-xl py-1 px-1.5 border border-emerald-300 dark:border-emerald-700/80 flex flex-col justify-center shadow-2xs">
-                  <div className="flex items-center justify-center gap-0.5 text-emerald-700 dark:text-emerald-400">
-                    <Truck className="w-2.5 h-2.5 shrink-0" />
-                    <span className="text-[8.5px] sm:text-[9px] font-black uppercase tracking-tight">
-                      Delivery
-                    </span>
-                  </div>
-                  <div className="text-xs sm:text-sm font-black font-nominal text-emerald-800 dark:text-emerald-200 leading-tight">
-                    <AnimatedCounter value={deliveredBatches} format="number" /> <span className="text-[9px] font-medium opacity-80">trx</span>
-                  </div>
-                </div>
-
-                {/* Info 3: Pending (Merah) */}
-                <div className={`rounded-xl py-1 px-1.5 border flex flex-col justify-center transition-colors ${
-                  pendingBatches > 0
-                    ? 'bg-rose-50/90 dark:bg-rose-950/50 border-rose-300 dark:border-rose-700/80 shadow-2xs'
-                    : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/70 dark:border-slate-800'
-                }`}>
-                  <div className={`flex items-center justify-center gap-0.5 ${
-                    pendingBatches > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'
-                  }`}>
-                    <Clock className="w-2.5 h-2.5 shrink-0" />
-                    <span className="text-[8.5px] sm:text-[9px] font-black uppercase tracking-tight">
-                      Pending
-                    </span>
-                  </div>
-                  <div className={`text-xs sm:text-sm font-black font-nominal leading-tight ${
-                    pendingBatches > 0 ? 'text-rose-800 dark:text-rose-200' : 'text-slate-700 dark:text-slate-300'
-                  }`}>
-                    <AnimatedCounter value={pendingBatches} format="number" /> <span className="text-[9px] font-medium opacity-80">trx</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {totalBatches === 0 && orders.length > 0 && activePeriod !== 'all_time' && (
-              <button
-                type="button"
-                onClick={() => handleSetPeriod('all_time')}
-                className="order-4 text-[10.5px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/70 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 border border-indigo-200 dark:border-indigo-800 rounded-xl px-2.5 py-1.5 text-center cursor-pointer transition-colors shadow-2xs w-full"
-                title="Klik untuk melihat semua pesanan yang tersimpan di database"
-              >
-                Data aman: Ada {orders.length} pesanan di All Time &rarr;
               </button>
-            )}
-          </div>
+            </div>
 
+            <div className="sm:col-span-1 xl:col-span-2 min-h-[112px] xl:min-h-full bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl p-4 flex flex-col justify-center gap-3 shadow-2xs">
+              <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center"><Tag className="w-5 h-5" /></div>
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 block">Total Cashback</span>
+                <span className="text-lg sm:text-xl font-black font-nominal text-amber-950 dark:text-amber-100 leading-tight block"><AnimatedCounter value={totalCashback} format="rupiah" /></span>
+              </div>
+            </div>
+
+            <button type="button" onClick={onOpenExpenses} aria-label="Buka Pengeluaran Operasional" title={onOpenExpenses ? 'Klik untuk melihat rincian Pengeluaran Operasional' : 'Biaya Operasional'} className={`sm:col-span-1 xl:col-span-2 min-h-[112px] xl:min-h-full w-full bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200/90 dark:border-rose-800/60 rounded-2xl p-4 flex flex-col justify-center gap-3 text-left shadow-2xs hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/70 transition-colors ${onOpenExpenses ? 'cursor-pointer' : ''}`}>
+              <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center"><Banknote className="w-5 h-5" /></div>
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 block">Biaya Operasional</span>
+                <span className="text-lg sm:text-xl font-black font-nominal text-rose-950 dark:text-rose-100 leading-tight block"><AnimatedCounter value={biayaOperasional} format="rupiah" /></span>
+              </div>
+            </button>
+
+            <div className="sm:col-span-2 xl:col-span-4 min-h-[180px] bg-white dark:bg-slate-800/90 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl p-4 flex flex-col justify-between shadow-2xs">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700/60 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center"><ShoppingBag className="w-5 h-5" /></div>
+                  <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Status Pemesanan</span>
+                </div>
+                <div className="flex items-center gap-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  <span>Lunas: <strong className="text-emerald-700 dark:text-emerald-300 font-bold">{paidBatches}</strong></span>
+                  <span>Belum: <strong className="text-amber-700 dark:text-amber-300 font-bold">{unpaidBatches}</strong></span>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center pt-3">
+                <div className="bg-slate-50 dark:bg-slate-900/60 rounded-lg py-2 px-1.5 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight block">Total</span>
+                  <div className="text-base font-black font-nominal text-slate-900 dark:text-slate-100"><AnimatedCounter value={totalBatches} format="number" /><span className="ml-1 text-[10px] font-medium text-slate-400">trx</span></div>
+                </div>
+                <div className="bg-emerald-50/90 dark:bg-emerald-950/50 rounded-lg py-2 px-1.5 border border-emerald-200 dark:border-emerald-700/80">
+                  <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-tight block">Delivery</span>
+                  <div className="text-base font-black font-nominal text-emerald-800 dark:text-emerald-200"><AnimatedCounter value={deliveredBatches} format="number" /><span className="ml-1 text-[10px] font-medium opacity-80">trx</span></div>
+                </div>
+                <div className={`rounded-lg py-2 px-1.5 border ${pendingBatches > 0 ? 'bg-rose-50/90 dark:bg-rose-950/50 border-rose-200 dark:border-rose-700/80' : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/70 dark:border-slate-800'}`}>
+                  <span className={`text-[9px] font-bold uppercase tracking-tight block ${pendingBatches > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>Pending</span>
+                  <div className={`text-base font-black font-nominal ${pendingBatches > 0 ? 'text-rose-800 dark:text-rose-200' : 'text-slate-700 dark:text-slate-300'}`}><AnimatedCounter value={pendingBatches} format="number" /><span className="ml-1 text-[10px] font-medium opacity-80">trx</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
           {/* Right Column: HIGHLIGHT FOLLOW UP */}
           <div className="bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-2.5 sm:p-3 flex flex-col justify-between shadow-[inset_1px_1px_2px_rgba(255,255,255,0.9)] dark:shadow-none transition-colors duration-200">
             {/* Header of Follow Up Section */}
