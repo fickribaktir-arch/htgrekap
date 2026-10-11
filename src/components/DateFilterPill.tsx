@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Calendar, X, ChevronDown } from 'lucide-react';
 import { getTodayWIB, getYesterdayWIB, formatTanggalSimple } from '../lib/formatters';
+import { CalendarPickerModal } from './CalendarPickerModal';
 
 export interface DateFilterValue {
   startDate?: string; // YYYY-MM-DD (empty = no filter / all time)
@@ -78,6 +79,7 @@ export const DateFilterPill: React.FC<DateFilterPillProps> = ({
   className = '',
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const todayStr = useMemo(() => getTodayWIB(), []);
@@ -97,26 +99,6 @@ export const DateFilterPill: React.FC<DateFilterPillProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isMenuOpen]);
-
-  const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newStart = e.target.value;
-    onChange({
-      ...value,
-      type: 'custom',
-      startDate: newStart,
-      endDate: value.endDate && value.endDate < newStart ? newStart : value.endDate,
-    });
-  };
-
-  const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newEnd = e.target.value;
-    onChange({
-      ...value,
-      type: 'custom',
-      startDate: value.startDate && value.startDate > newEnd ? newEnd : value.startDate,
-      endDate: newEnd,
-    });
-  };
 
   const handleClear = () => {
     onChange({
@@ -163,78 +145,16 @@ export const DateFilterPill: React.FC<DateFilterPillProps> = ({
   };
 
   return (
-    <div className={`relative inline-flex items-center gap-1 flex-nowrap ${className}`} ref={menuRef}>
-      {/* Container Langsung Rentang Tanggal Kustom (Mulai - Berakhir) */}
-      <div
-        className={`rounded-full px-2.5 py-1 border transition-all flex items-center gap-1.5 min-h-9 ${
-          isFiltered
-            ? 'bg-indigo-50 dark:bg-indigo-950/80 border-indigo-300 dark:border-indigo-700 text-indigo-900 dark:text-indigo-200 font-bold ring-1 ring-indigo-300 dark:ring-indigo-700'
-            : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-indigo-300 dark:hover:border-indigo-600'
-        }`}
-      >
-        {/* Icon & Label Rentang */}
-        <div className="flex items-center gap-1.5 shrink-0 text-slate-700 dark:text-slate-300">
-          <Calendar className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-          <span className="text-[10px] font-bold whitespace-nowrap">
-            Tanggal
-          </span>
-        </div>
-
-        {/* Input Tanggal Mulai */}
-        <div className="flex items-center gap-1">
-          <input
-            type="date"
-            value={value.startDate || ''}
-            onChange={handleStartDateChange}
-            aria-label="Tanggal mulai"
-            title="Pilih tanggal mulai"
-            className="bg-transparent border-b border-dashed border-slate-300 dark:border-slate-600 hover:border-indigo-500 focus:border-indigo-600 text-[10px] font-bold text-slate-900 dark:text-slate-100 focus:outline-none cursor-pointer py-0.5 px-0.5 w-[94px] dark:[color-scheme:dark]"
-          />
-        </div>
-
-        <span className="text-slate-400 dark:text-slate-500 text-[10px] font-semibold select-none">
-          –
-        </span>
-
-        {/* Input Tanggal Berakhir */}
-        <div className="flex items-center gap-1">
-          <input
-            type="date"
-            value={value.endDate || ''}
-            min={value.startDate || undefined}
-            onChange={handleEndDateChange}
-            aria-label="Tanggal berakhir"
-            title="Pilih tanggal berakhir"
-            className="bg-transparent border-b border-dashed border-slate-300 dark:border-slate-600 hover:border-indigo-500 focus:border-indigo-600 text-[10px] font-bold text-slate-900 dark:text-slate-100 focus:outline-none cursor-pointer py-0.5 px-0.5 w-[94px] dark:[color-scheme:dark]"
-          />
-        </div>
-
-        {/* Tombol Preset Cepat (Dropdown Panah) */}
-        <button
-          type="button"
-          onClick={() => setIsMenuOpen((prev) => !prev)}
-            className="p-0.5 rounded-full text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-          title="Pilihan Preset Periode"
-        >
-          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`} />
+    <div className={`relative inline-flex shrink-0 items-center gap-1 flex-nowrap ${className}`} ref={menuRef}>
+      <div className={`inline-flex items-center rounded-full border p-0.5 min-h-9 ${isFiltered ? 'bg-indigo-50 dark:bg-indigo-950/80 border-indigo-300 dark:border-indigo-700 text-indigo-900 dark:text-indigo-200' : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 text-slate-700 dark:text-slate-200'}`}>
+        <button type="button" onClick={() => setIsCalendarOpen(true)} aria-label="Pilih rentang tanggal" title="Pilih rentang tanggal" className="inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-semibold whitespace-nowrap hover:bg-slate-100 dark:hover:bg-slate-800">
+          <Calendar className="h-3.5 w-3.5 shrink-0 text-purple-600 dark:text-purple-400" />
+          <span className="max-w-[150px] truncate">{isFiltered ? (value.startDate === value.endDate ? formatTanggalSimple(value.startDate || '') : `${formatTanggalSimple(value.startDate || '')} – ${formatTanggalSimple(value.endDate || '')}`) : 'Semua tanggal'}</span>
         </button>
-
-        {/* Tombol Reset Cepat (X) jika filter aktif */}
-        {isFiltered ? (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="p-1 rounded-full text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
-            title="Reset ke Semua Tanggal (All Time)"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        ) : (
-          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium italic pr-0.5 select-none hidden sm:inline">
-            (All Time)
-          </span>
-        )}
+        {isFiltered && <button type="button" onClick={handleClear} aria-label="Hapus filter tanggal" title="Hapus filter tanggal" className="rounded-full p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/50"><X className="h-3 w-3" /></button>}
+        <button type="button" onClick={() => setIsMenuOpen((prev) => !prev)} aria-label="Pilihan periode cepat" title="Pilihan periode cepat" className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"><ChevronDown className={`h-3.5 w-3.5 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`} /></button>
       </div>
+      <CalendarPickerModal isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} selectedDate={value.startDate || todayStr} endDate={value.endDate || value.startDate || todayStr} onSelectDateRange={(startDate, endDate) => onChange({ startDate, endDate, type: 'custom' })} />
 
       {/* Dropdown Menu Preset Cepat */}
       {isMenuOpen && (

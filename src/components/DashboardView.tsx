@@ -270,18 +270,18 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
   return (
     <div className="space-y-3 pt-1 pb-36 sm:pb-24 font-sans text-slate-800 dark:text-slate-200 transition-colors duration-200">
       {/* Filter Pills Bar (Store, Kitchen, Calendar & Search) */}
-      <div className="flex flex-col items-stretch gap-2">
+      <div className="flex w-full flex-nowrap items-center gap-1.5">
         {/* Pill Filters Group */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex shrink-0 flex-nowrap items-center gap-1">
           {/* Pill 1: Store Icon + Dropdown */}
           <div className="relative inline-flex items-center">
-            <div className={`rounded-full px-3 py-1.5 border transition-all flex items-center gap-1.5 cursor-pointer min-h-9 ${
+            <div className={`rounded-full px-2.5 py-1 border transition-all flex items-center gap-1 cursor-pointer min-h-8 ${
               selectedStoreFilter !== 'all' 
                 ? 'bg-indigo-50 dark:bg-indigo-950/80 border-indigo-300 dark:border-indigo-700 text-indigo-900 dark:text-indigo-200 font-bold'
                 : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-indigo-300 dark:hover:border-indigo-600'
             }`}>
               <StoreIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-              <span className="text-xs font-bold whitespace-nowrap">
+              <span className="max-w-[105px] truncate text-[11px] font-bold whitespace-nowrap">
                 {selectedStoreFilter === 'all' ? 'Semua Toko' : `Toko ${selectedStoreFilter}`}
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
@@ -303,13 +303,13 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
 
           {/* Pill 2: Kitchen Icon + Dropdown */}
           <div className="relative inline-flex items-center">
-            <div className={`rounded-full px-3 py-1.5 border transition-all flex items-center gap-1.5 cursor-pointer min-h-9 ${
+            <div className={`rounded-full px-2.5 py-1 border transition-all flex items-center gap-1 cursor-pointer min-h-8 ${
               selectedKitchenFilter !== 'all'
                 ? 'bg-indigo-50 dark:bg-indigo-950/80 border-indigo-300 dark:border-indigo-700 text-indigo-900 dark:text-indigo-200 font-bold'
                 : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-indigo-300 dark:hover:border-indigo-600'
             }`}>
               <Utensils className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-              <span className="text-xs font-bold whitespace-nowrap">
+              <span className="max-w-[105px] truncate text-[11px] font-bold whitespace-nowrap">
                 {selectedKitchenFilter === 'all' ? 'Semua Dapur' : `Dapur ${selectedKitchenFilter}`}
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
@@ -335,11 +335,11 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
             onChange={handleDateFilterChange}
           />
 
-          <div className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 p-0.5">
-            <span className="px-2 text-[10px] font-bold text-slate-500 dark:text-slate-400">Status</span>
-            <button type="button" aria-pressed={statusFilter === 'all'} onClick={() => setStatusFilter('all')} className={`inline-flex items-center gap-1 rounded-full px-2 py-1.5 text-[10px] font-bold whitespace-nowrap transition-colors ${statusFilter === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>Semua <span className="font-black font-nominal">{dashboardMetrics.totalTrx}</span></button>
-            <button type="button" aria-pressed={statusFilter === 'delivered'} onClick={() => setStatusFilter((prev) => (prev === 'delivered' ? 'all' : 'delivered'))} className={`inline-flex items-center gap-1 rounded-full px-2 py-1.5 text-[10px] font-bold whitespace-nowrap transition-colors ${statusFilter === 'delivered' ? 'bg-emerald-600 text-white' : 'text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-slate-800'}`}>Delivery <span className="font-black font-nominal">{dashboardMetrics.deliveredTrx}</span></button>
-            <button type="button" aria-pressed={statusFilter === 'pending'} onClick={() => setStatusFilter((prev) => (prev === 'pending' ? 'all' : 'pending'))} className={`inline-flex items-center gap-1 rounded-full px-2 py-1.5 text-[10px] font-bold whitespace-nowrap transition-colors ${statusFilter === 'pending' ? 'bg-rose-600 text-white' : 'text-rose-800 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-slate-800'}`}>Pending <span className="font-black font-nominal">{dashboardMetrics.pendingTrx}</span></button>
+          <div className="inline-flex shrink-0 items-center gap-0 rounded-full border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 p-0.5">
+            <span className="px-1.5 text-[9px] font-bold text-slate-500 dark:text-slate-400">Status</span>
+            <button type="button" aria-pressed={statusFilter === 'all'} onClick={() => setStatusFilter('all')} className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-1 text-[9px] font-bold whitespace-nowrap transition-colors ${statusFilter === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>Semua <span className="font-black font-nominal">{dashboardMetrics.totalTrx}</span></button>
+            <button type="button" aria-pressed={statusFilter === 'delivered'} onClick={() => setStatusFilter((prev) => (prev === 'delivered' ? 'all' : 'delivered'))} className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-1 text-[9px] font-bold whitespace-nowrap transition-colors ${statusFilter === 'delivered' ? 'bg-emerald-600 text-white' : 'text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-slate-800'}`}>Delivery <span className="font-black font-nominal">{dashboardMetrics.deliveredTrx}</span></button>
+            <button type="button" aria-pressed={statusFilter === 'pending'} onClick={() => setStatusFilter((prev) => (prev === 'pending' ? 'all' : 'pending'))} className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-1 text-[9px] font-bold whitespace-nowrap transition-colors ${statusFilter === 'pending' ? 'bg-rose-600 text-white' : 'text-rose-800 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-slate-800'}`}>Pending <span className="font-black font-nominal">{dashboardMetrics.pendingTrx}</span></button>
           </div>
 
           {/* Reset active store filter if clicked from breakdown */}
@@ -347,7 +347,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
             <button
               type="button"
               onClick={() => setSelectedStoreFilter('all')}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] font-semibold cursor-pointer min-h-9"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] font-semibold cursor-pointer min-h-8"
               title="Hapus Filter Toko"
             >
               <span>Reset Toko</span>
@@ -357,14 +357,14 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
         </div>
 
         {/* Search Input */}
-        <div className="relative w-full max-w-sm">
+        <div className="relative min-w-[140px] flex-1">
           <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Cari barang, toko, dapur..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-7 py-2 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-full text-xs font-semibold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition-all min-h-9"
+            className="w-full pl-8 pr-7 py-1.5 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-full text-[11px] font-semibold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition-all min-h-8"
           />
           {searchQuery && (
             <button
