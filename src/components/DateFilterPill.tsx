@@ -163,10 +163,10 @@ export const DateFilterPill: React.FC<DateFilterPillProps> = ({
   };
 
   return (
-    <div className={`relative inline-flex items-center gap-1.5 flex-wrap ${className}`} ref={menuRef}>
+    <div className={`relative inline-flex items-center gap-1 flex-nowrap ${className}`} ref={menuRef}>
       {/* Container Langsung Rentang Tanggal Kustom (Mulai - Berakhir) */}
       <div
-        className={`rounded-full px-3 py-1.5 border shadow-2xs transition-all flex items-center gap-2 min-h-[44px] ${
+        className={`rounded-full px-2.5 py-1 border transition-all flex items-center gap-1.5 min-h-9 ${
           isFiltered
             ? 'bg-indigo-50 dark:bg-indigo-950/80 border-indigo-300 dark:border-indigo-700 text-indigo-900 dark:text-indigo-200 font-bold ring-1 ring-indigo-300 dark:ring-indigo-700'
             : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-indigo-300 dark:hover:border-indigo-600'
@@ -175,35 +175,29 @@ export const DateFilterPill: React.FC<DateFilterPillProps> = ({
         {/* Icon & Label Rentang */}
         <div className="flex items-center gap-1.5 shrink-0 text-slate-700 dark:text-slate-300">
           <Calendar className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-          <span className="text-xs font-bold whitespace-nowrap">
-            Rentang:
+          <span className="text-[10px] font-bold whitespace-nowrap">
+            Tanggal
           </span>
         </div>
 
         {/* Input Tanggal Mulai */}
         <div className="flex items-center gap-1">
-          <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 select-none">
-            Mulai:
-          </span>
           <input
             type="date"
             value={value.startDate || ''}
             onChange={handleStartDateChange}
             aria-label="Tanggal mulai"
             title="Pilih tanggal mulai"
-            className="bg-transparent border-b border-dashed border-slate-300 dark:border-slate-600 hover:border-indigo-500 focus:border-indigo-600 text-xs font-bold text-slate-900 dark:text-slate-100 focus:outline-none cursor-pointer py-0.5 px-1 max-w-[110px] sm:max-w-[125px] dark:[color-scheme:dark]"
+            className="bg-transparent border-b border-dashed border-slate-300 dark:border-slate-600 hover:border-indigo-500 focus:border-indigo-600 text-[10px] font-bold text-slate-900 dark:text-slate-100 focus:outline-none cursor-pointer py-0.5 px-0.5 w-[94px] dark:[color-scheme:dark]"
           />
         </div>
 
-        <span className="text-slate-400 dark:text-slate-500 text-[11px] font-semibold select-none">
-          s/d
+        <span className="text-slate-400 dark:text-slate-500 text-[10px] font-semibold select-none">
+          –
         </span>
 
         {/* Input Tanggal Berakhir */}
         <div className="flex items-center gap-1">
-          <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 select-none">
-            Berakhir:
-          </span>
           <input
             type="date"
             value={value.endDate || ''}
@@ -211,7 +205,7 @@ export const DateFilterPill: React.FC<DateFilterPillProps> = ({
             onChange={handleEndDateChange}
             aria-label="Tanggal berakhir"
             title="Pilih tanggal berakhir"
-            className="bg-transparent border-b border-dashed border-slate-300 dark:border-slate-600 hover:border-indigo-500 focus:border-indigo-600 text-xs font-bold text-slate-900 dark:text-slate-100 focus:outline-none cursor-pointer py-0.5 px-1 max-w-[110px] sm:max-w-[125px] dark:[color-scheme:dark]"
+            className="bg-transparent border-b border-dashed border-slate-300 dark:border-slate-600 hover:border-indigo-500 focus:border-indigo-600 text-[10px] font-bold text-slate-900 dark:text-slate-100 focus:outline-none cursor-pointer py-0.5 px-0.5 w-[94px] dark:[color-scheme:dark]"
           />
         </div>
 
@@ -219,7 +213,7 @@ export const DateFilterPill: React.FC<DateFilterPillProps> = ({
         <button
           type="button"
           onClick={() => setIsMenuOpen((prev) => !prev)}
-          className="p-1 rounded-full text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-0.5 rounded-full text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           title="Pilihan Preset Periode"
         >
           <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`} />
