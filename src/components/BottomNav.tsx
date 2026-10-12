@@ -10,7 +10,7 @@ interface BottomNavProps {
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onChangeTab, onOpenManual }) => (
-  <div className="fixed bottom-3 sm:bottom-4 md:bottom-5 left-0 right-0 z-50 px-3 sm:px-4 max-w-[480px] sm:max-w-[520px] mx-auto no-print pointer-events-none">
+  <div className="fixed bottom-3 sm:bottom-4 md:bottom-5 left-0 right-0 z-30 px-3 sm:px-4 max-w-[480px] sm:max-w-[520px] mx-auto no-print pointer-events-none">
     <nav
       aria-label="Navigasi utama"
       className="relative h-[62px] sm:h-[66px] rounded-full grid grid-cols-4 items-center px-2 sm:px-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgba(15,23,42,0.08)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.5)] pointer-events-auto transition-all duration-200"

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -58,7 +59,18 @@ export const CalendarPickerModal: React.FC<CalendarPickerModalProps> = ({
     }
   }, [isOpen, selectedDate, endDate]);
 
+  // Lock body scrolling when modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
+  if (typeof document === 'undefined') return null;
 
   // Month navigation
   const handlePrevMonth = () => {
@@ -143,14 +155,27 @@ export const CalendarPickerModal: React.FC<CalendarPickerModalProps> = ({
     return `${parseInt(d, 10)} ${MONTH_NAMES_SHORT[mIdx]} ${y}`;
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 no-print">
+      <div 
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs no-print overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Pilih Tanggal atau Rentang"
+      >
+        {/* Backdrop click to close */}
+        <div 
+          className="fixed inset-0 bg-transparent cursor-pointer" 
+          onClick={onClose} 
+          aria-hidden="true" 
+        />
+
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="clay-card w-full max-w-sm bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 space-y-4 font-sans"
+          className="clay-card relative z-10 w-full max-w-sm max-h-[92vh] overflow-y-auto my-auto bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 space-y-4 font-sans"
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Top Bar with Title and Close */}
           <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
@@ -317,6 +342,7 @@ export const CalendarPickerModal: React.FC<CalendarPickerModalProps> = ({
           </div>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
