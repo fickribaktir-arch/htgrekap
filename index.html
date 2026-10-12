@@ -24,16 +24,16 @@
       (function() {
         try {
           const stored = localStorage.getItem('htg_theme');
-          if (stored === 'dark') {
-            document.documentElement.classList.add('dark');
-            document.documentElement.setAttribute('data-theme', 'dark');
-            const meta = document.querySelector('meta[name="theme-color"]');
-            if (meta) meta.setAttribute('content', '#090a0c');
-          } else {
+          if (stored === 'light') {
             document.documentElement.classList.remove('dark');
             document.documentElement.setAttribute('data-theme', 'light');
             const meta = document.querySelector('meta[name="theme-color"]');
             if (meta) meta.setAttribute('content', '#004c31');
+          } else {
+            document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-theme', 'dark');
+            const meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute('content', '#090a0c');
           }
         } catch (e) {}
       })();

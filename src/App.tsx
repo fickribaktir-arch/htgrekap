@@ -513,7 +513,7 @@ export default function App() {
   }, [showToast, setOperationalExpenses]);
 
   return (
-    <div className={`min-h-screen bg-[#eef2f6] dark:bg-[#090a0c] text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white transition-colors duration-200 ${activeTab === 'pengiriman' ? 'pb-8' : 'pb-36 sm:pb-24'}`}>
+    <div className={`min-h-screen bg-[#eef2f6] dark:bg-[#090a0c] text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-purple-500 selection:text-white transition-colors duration-200 overflow-x-clip ${activeTab === 'pengiriman' ? 'pb-8' : 'pb-36 sm:pb-24'}`}>
       {/* Top Header Banner */}
       {activeTab === 'dashboard' && (
         <HeaderBanner

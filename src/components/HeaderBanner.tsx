@@ -221,12 +221,12 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
 
           {/* Right Section: Filter Switcher & Desktop Action Buttons */}
           <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 w-full sm:w-auto shrink-0 flex-wrap">
-            <div className="inline-flex items-center gap-0.5 sm:gap-1 rounded-full border border-slate-200/80 dark:border-slate-700 bg-slate-100/90 dark:bg-slate-800/90 p-1 shadow-2xs shrink-0 overflow-x-auto">
+            <div className="inline-flex items-center gap-0.5 sm:gap-1 rounded-full border border-slate-200/80 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-800/90 p-1 shadow-2xs shrink-0 overflow-x-auto">
               {([
                 ['hari_ini', 'Hari Ini'],
-                ['mingguan', 'Mingguan'],
-                ['bulan_ini', 'Bulanan'],
-                ['all_time', 'All Time'],
+                ['mingguan', 'Minggu Ini'],
+                ['bulan_ini', 'Bulan Ini'],
+                ['all_time', 'Semua'],
               ] as const).map(([value, label]) => (
                 <button
                   key={value}
@@ -234,8 +234,8 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
                   aria-pressed={period === value}
                   onClick={() => onPeriodChange(value)}
                   className={`px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${period === value
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700/80'
                   }`}
                 >
                   {label}
@@ -282,117 +282,144 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
         </div>
 
 
-        {/* SUB-ROW: Status Operasional & Follow Up Notes */}
-        <div className="grid grid-cols-1 gap-2.5">
-          {/* Left: Status Operasional (Total Penjualan - Pengeluaran Beli - Total Cashback - Biaya Operasional - Laba Bersih - Status Pemesanan) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(190px,3.2fr)_minmax(140px,2fr)_minmax(140px,2fr)_minmax(140px,2fr)_minmax(230px,3.4fr)] gap-2 sm:gap-2.5 lg:gap-2 xl:gap-2.5 items-stretch">
-            {/* Col 1: Total Penjualan & Laba Bersih (Stacked on desktop/tablet landscape, side-by-side on tablet portrait) */}
-            <div className="sm:col-span-2 lg:col-span-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2 h-full">
-              <div className="min-h-[64px] bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/90 dark:border-indigo-800/60 rounded-2xl px-3 py-2.5 flex items-center gap-2.5 shadow-2xs">
-                <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                  <TrendingUp className="w-4 h-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-800 dark:text-indigo-300 block truncate">Total Penjualan</span>
-                  <span className="text-sm sm:text-base lg:text-sm xl:text-base font-black font-nominal text-indigo-950 dark:text-indigo-100 leading-tight truncate block">
-                    <AnimatedCounter value={totalPenjualan} format="rupiah" />
-                  </span>
-                </div>
-              </div>
-
-              <div className="min-h-[64px] w-full bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/90 dark:border-emerald-800/60 rounded-2xl px-3 py-2.5 flex items-center gap-2.5 shadow-2xs text-left">
-                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block truncate">Laba Bersih</span>
-                  <span className={`text-sm sm:text-base lg:text-sm xl:text-base font-black font-nominal leading-tight truncate block ${totalLabaBersih >= 0 ? 'text-emerald-950 dark:text-emerald-100' : 'text-rose-700 dark:text-rose-300'}`}>
-                    <AnimatedCounter value={totalLabaBersih} format="rupiah" />
-                  </span>
-                </div>
+        {/* Financial Summary Cards (Total Penjualan, Pembelian, Cashback, Biaya Operasional, Laba Bersih) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5 items-stretch">
+          {/* Card 1: Total Penjualan */}
+          <div className="min-w-0 bg-[#eff4fe] dark:bg-indigo-950/40 border border-[#d8e5fd] dark:border-indigo-900/50 rounded-2xl p-3 flex flex-col justify-between shadow-2xs transition-colors">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3b5998] dark:text-indigo-300 block truncate">Total Penjualan</span>
+              <div className="w-7 h-7 rounded-lg bg-[#3b5bf5] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <TrendingUp className="w-3.5 h-3.5" />
               </div>
             </div>
-
-            {/* Col 2: Pembelian */}
-            <div className="sm:col-span-1 lg:col-span-1 min-w-0 min-h-[136px] lg:min-h-[140px] h-full overflow-hidden bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/90 dark:border-sky-800/60 rounded-2xl p-3 flex flex-col justify-between shadow-2xs">
-              <div className="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                <ShoppingBag className="w-4 h-4" />
-              </div>
-              <div className="min-w-0 mt-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-sky-800 dark:text-sky-300 block truncate">Pembelian</span>
-                <span className="text-sm sm:text-base lg:text-sm xl:text-base font-black font-nominal text-sky-950 dark:text-sky-100 leading-tight tracking-tight truncate block">
-                  <AnimatedCounter value={totalPengeluaran} format="rupiah" />
-                </span>
-              </div>
-            </div>
-
-            {/* Col 3: Total Cashback */}
-            <div className="sm:col-span-1 lg:col-span-1 min-w-0 min-h-[136px] lg:min-h-[140px] h-full overflow-hidden bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl p-3 flex flex-col justify-between shadow-2xs">
-              <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                <Tag className="w-4 h-4" />
-              </div>
-              <div className="min-w-0 mt-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 block truncate">Total Cashback</span>
-                <span className="text-sm sm:text-base lg:text-sm xl:text-base font-black font-nominal text-amber-950 dark:text-amber-100 leading-tight tracking-tight truncate block">
-                  <AnimatedCounter value={totalCashback} format="rupiah" />
-                </span>
-              </div>
-            </div>
-
-            {/* Col 4: Biaya Operasional */}
-            <div className="sm:col-span-1 lg:col-span-1 min-w-0 min-h-[136px] lg:min-h-[140px] h-full w-full overflow-hidden bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200/90 dark:border-rose-800/60 rounded-2xl p-3 flex flex-col justify-between shadow-2xs text-left">
-              <div className="w-8 h-8 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                <Banknote className="w-4 h-4" />
-              </div>
-              <div className="min-w-0 mt-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 block truncate">Biaya Operasional</span>
-                <span className="text-sm sm:text-base lg:text-sm xl:text-base font-black font-nominal text-rose-950 dark:text-rose-100 leading-tight tracking-tight truncate block">
-                  <AnimatedCounter value={biayaOperasional} format="rupiah" />
-                </span>
-              </div>
-            </div>
-
-            {/* Col 5: Status Pemesanan */}
-            <div className="sm:col-span-1 lg:col-span-1 min-w-0 min-h-[136px] lg:min-h-[140px] h-full bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3 flex flex-col justify-between shadow-sm">
-              <div className="flex items-center justify-between gap-1.5 min-w-0">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                    <ShoppingBag className="w-3 h-3" />
-                  </div>
-                  <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">Status Pemesanan</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-[8.5px] font-semibold whitespace-nowrap shrink-0">
-                  <span className="text-slate-500 dark:text-slate-400"><span className="text-emerald-500">●</span> Lunas <strong className="text-slate-800 dark:text-slate-100">{paidBatches}</strong></span>
-                  <span className="text-slate-500 dark:text-slate-400"><span className="text-amber-500">●</span> Belum <strong className="text-slate-800 dark:text-slate-100">{unpaidBatches}</strong></span>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-700 text-center py-1">
-                <div className="px-1"><span className="text-[8.5px] font-medium text-slate-500 dark:text-slate-400 block">Total</span><div className="text-base lg:text-sm xl:text-base font-bold tracking-tight text-slate-900 dark:text-slate-100"><AnimatedCounter value={totalBatches} format="number" /><span className="ml-0.5 text-[8px] font-medium text-slate-400">trx</span></div></div>
-                <div className="px-1"><span className="text-[8.5px] font-medium text-slate-500 dark:text-slate-400 block">Delivery</span><div className="text-base lg:text-sm xl:text-base font-bold tracking-tight text-emerald-700 dark:text-emerald-300"><AnimatedCounter value={deliveredBatches} format="number" /><span className="ml-0.5 text-[8px] font-medium text-slate-400">trx</span></div></div>
-                <div className="px-1"><span className="text-[8.5px] font-medium text-slate-500 dark:text-slate-400 block">Pending</span><div className={`text-base lg:text-sm xl:text-base font-bold tracking-tight ${pendingBatches > 0 ? 'text-rose-700 dark:text-rose-300' : 'text-slate-700 dark:text-slate-300'}`}><AnimatedCounter value={pendingBatches} format="number" /><span className="ml-0.5 text-[8px] font-medium text-slate-400">trx</span></div></div>
-              </div>
-              <div className="text-center text-[8.5px] font-medium text-slate-400 dark:text-slate-500 truncate">{displayedItems} barang · {displayedTrx} nota</div>
+            <div className="min-w-0 mt-2">
+              <span className="text-sm sm:text-base lg:text-lg font-black font-nominal text-slate-900 dark:text-slate-100 leading-tight tracking-tight truncate block">
+                <AnimatedCounter value={totalPenjualan} format="rupiah" />
+              </span>
             </div>
           </div>
-          {/* Right Column: HIGHLIGHT FOLLOW UP */}
-          <div className="bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-2.5 sm:p-3 flex flex-col justify-between shadow-[inset_1px_1px_2px_rgba(255,255,255,0.9)] dark:shadow-none transition-colors duration-200">
+
+          {/* Card 2: Pembelian */}
+          <div className="min-w-0 bg-[#eff8ff] dark:bg-sky-950/40 border border-[#cbe5fb] dark:border-sky-900/50 rounded-2xl p-3 flex flex-col justify-between shadow-2xs transition-colors">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#0369a1] dark:text-sky-300 block truncate">Pembelian</span>
+              <div className="w-7 h-7 rounded-lg bg-[#0284c7] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <ShoppingBag className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div className="min-w-0 mt-2">
+              <span className="text-sm sm:text-base lg:text-lg font-black font-nominal text-slate-900 dark:text-slate-100 leading-tight tracking-tight truncate block">
+                <AnimatedCounter value={totalPengeluaran} format="rupiah" />
+              </span>
+            </div>
+          </div>
+
+          {/* Card 3: Total Cashback */}
+          <div className="min-w-0 bg-[#fef8ed] dark:bg-amber-950/40 border border-[#fae2b8] dark:border-amber-900/50 rounded-2xl p-3 flex flex-col justify-between shadow-2xs transition-colors">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#b45309] dark:text-amber-300 block truncate">Total Cashback</span>
+              <div className="w-7 h-7 rounded-lg bg-[#ea580c] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Tag className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div className="min-w-0 mt-2">
+              <span className="text-sm sm:text-base lg:text-lg font-black font-nominal text-slate-900 dark:text-slate-100 leading-tight tracking-tight truncate block">
+                <AnimatedCounter value={totalCashback} format="rupiah" />
+              </span>
+            </div>
+          </div>
+
+          {/* Card 4: Biaya Operasional */}
+          <div className="min-w-0 bg-[#fef1f2] dark:bg-rose-950/40 border border-[#fad4d8] dark:border-rose-900/50 rounded-2xl p-3 flex flex-col justify-between shadow-2xs transition-colors">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#be123c] dark:text-rose-300 block truncate">Biaya Operasional</span>
+              <div className="w-7 h-7 rounded-lg bg-[#e11d48] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Banknote className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div className="min-w-0 mt-2">
+              <span className="text-sm sm:text-base lg:text-lg font-black font-nominal text-slate-900 dark:text-slate-100 leading-tight tracking-tight truncate block">
+                <AnimatedCounter value={biayaOperasional} format="rupiah" />
+              </span>
+            </div>
+          </div>
+
+          {/* Card 5: Laba Bersih (Aksen hijau khas) */}
+          <div className="col-span-2 sm:col-span-1 min-w-0 bg-[#ebf9f1] dark:bg-emerald-950/40 border border-[#c6f0d7] dark:border-emerald-800/70 rounded-2xl p-3 flex flex-col justify-between shadow-2xs transition-colors">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#1b8754] dark:text-emerald-300 block truncate">Laba Bersih</span>
+              <div className="w-7 h-7 rounded-lg bg-[#16a34a] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div className="min-w-0 mt-2">
+              <span className={`text-sm sm:text-base lg:text-lg font-black font-nominal leading-tight tracking-tight truncate block ${totalLabaBersih >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-400'}`}>
+                <AnimatedCounter value={totalLabaBersih} format="rupiah" />
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Status Pesanan & Follow Up Notes (Berdampingan di layar lebar dengan tinggi seimbang) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-stretch">
+          {/* Status Pesanan */}
+          <div className="lg:col-span-6 bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-3 flex flex-col justify-between shadow-2xs">
+            <div className="flex items-center justify-between gap-1.5 pb-2 border-b border-slate-200/70 dark:border-slate-700/70">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                  <ShoppingBag className="w-3 h-3" />
+                </div>
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 truncate">Status Pesanan</span>
+              </div>
+              <div className="flex items-center gap-2 text-[9.5px] font-bold whitespace-nowrap shrink-0">
+                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Lunas <strong className="text-slate-800 dark:text-slate-100">{paidBatches}</strong></span>
+                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Belum <strong className="text-slate-800 dark:text-slate-100">{unpaidBatches}</strong></span>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-700/80 text-center py-2.5">
+              <div className="px-1.5">
+                <span className="text-[9.5px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">Total</span>
+                <div className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-slate-100">
+                  <AnimatedCounter value={totalBatches} format="number" /><span className="ml-1 text-[9px] font-semibold text-slate-400">trx</span>
+                </div>
+              </div>
+              <div className="px-1.5">
+                <span className="text-[9.5px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">Delivery</span>
+                <div className="text-base sm:text-lg font-black tracking-tight text-emerald-600 dark:text-emerald-400">
+                  <AnimatedCounter value={deliveredBatches} format="number" /><span className="ml-1 text-[9px] font-semibold text-slate-400">trx</span>
+                </div>
+              </div>
+              <div className="px-1.5">
+                <span className="text-[9.5px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">Pending</span>
+                <div className={`text-base sm:text-lg font-black tracking-tight ${pendingBatches > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                  <AnimatedCounter value={pendingBatches} format="number" /><span className="ml-1 text-[9px] font-semibold text-slate-400">trx</span>
+                </div>
+              </div>
+            </div>
+            <div className="pt-2 border-t border-slate-200/70 dark:border-slate-700/70 text-center text-[10px] font-semibold text-slate-400 dark:text-slate-500 truncate">
+              {displayedItems} barang · {displayedTrx} nota
+            </div>
+          </div>
+
+          {/* Follow Up Notes */}
+          <div className="lg:col-span-6 bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-3 flex flex-col justify-between shadow-2xs">
             {/* Header of Follow Up Section */}
-            <div className="flex items-center justify-between pb-1.5 border-b border-slate-200 dark:border-slate-700">
-              <div className="flex items-center gap-1.5">
-                <div className="w-5 h-5 rounded-lg bg-indigo-900 dark:bg-indigo-600 text-white flex items-center justify-center">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200/70 dark:border-slate-700/70">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
                   <FileText className="w-3 h-3" />
                 </div>
-                <span className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 truncate">
                   FOLLOW UP
                 </span>
                 {followUpNotes.length > 0 && (
-                  <span className="text-[9.5px] font-black px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300">
+                  <span className="text-[9.5px] font-black px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/80">
                     {activeNotesCount}
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 shrink-0">
                 {notes.length > 0 && (
                   <button
                     type="button"
@@ -403,9 +430,9 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
                     aria-label={isSelectingNotes ? 'Selesai memilih Follow Up' : 'Pilih banyak Follow Up'}
                     aria-pressed={isSelectingNotes}
                     title={isSelectingNotes ? 'Selesai memilih' : 'Pilih banyak'}
-                    className={`flex h-8 w-8 items-center justify-center rounded-xl border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${isSelectingNotes ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700'}`}
+                    className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-500 ${isSelectingNotes ? 'border-purple-500 bg-purple-600 text-white' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                   >
-                    <ListChecks className="h-4 w-4" />
+                    <ListChecks className="h-3.5 w-3.5" />
                   </button>
                 )}
                 <button
@@ -413,35 +440,35 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
                   onClick={onOpenNewNoteSheet}
                   aria-label="Tambah Follow Up"
                   title="Tambah Follow Up"
-                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-600 hover:bg-purple-700 text-white shadow-2xs active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-500"
                 >
-                  <Plus className="w-4 h-4 stroke-[2.7]" />
+                  <Plus className="w-3.5 h-3.5 stroke-[2.7]" />
                 </button>
               </div>
             </div>
 
             {isSelectingNotes && (
-              <div className="flex items-center justify-between gap-2 border-b border-slate-200 py-2 dark:border-slate-700">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-200 py-1.5 dark:border-slate-700">
                 <button
                   type="button"
                   onClick={() => toggleNoteSelection(followUpNotes.map((note) => note.id))}
                   aria-label={selectedNoteIds.size === followUpNotes.length ? 'Batal pilih semua Follow Up' : 'Pilih semua Follow Up'}
                   title={selectedNoteIds.size === followUpNotes.length ? 'Batal pilih semua' : 'Pilih semua'}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-indigo-700 hover:bg-indigo-100 dark:text-indigo-300 dark:hover:bg-indigo-950 focus-visible:outline-2 focus-visible:outline-indigo-500"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-purple-700 hover:bg-purple-100 dark:text-purple-300 dark:hover:bg-purple-950 focus-visible:outline-2 focus-visible:outline-purple-500"
                 >
                   {selectedNoteIds.size === followUpNotes.length ? <CheckSquare2 className="h-4 w-4" /> : <Square className="h-4 w-4" />}
                 </button>
                 <div className="flex items-center gap-1.5">
-                  <span aria-live="polite" className="min-w-6 rounded-full bg-indigo-100 px-1.5 py-0.5 text-center text-[10px] font-black text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">{selectedNoteIds.size}</span>
+                  <span aria-live="polite" className="min-w-6 rounded-full bg-purple-100 px-1.5 py-0.5 text-center text-[10px] font-black text-purple-700 dark:bg-purple-950 dark:text-purple-300">{selectedNoteIds.size}</span>
                   <button
                     type="button"
                     disabled={selectedNoteIds.size === 0}
                     onClick={() => onDeleteSelectedNotes([...selectedNoteIds])}
                     aria-label={`Hapus ${selectedNoteIds.size} Follow Up terpilih`}
                     title={`Hapus ${selectedNoteIds.size} terpilih`}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-35 dark:text-rose-400 dark:hover:bg-rose-950 focus-visible:outline-2 focus-visible:outline-rose-500"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-35 dark:text-rose-400 dark:hover:bg-rose-950 focus-visible:outline-2 focus-visible:outline-rose-500"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>

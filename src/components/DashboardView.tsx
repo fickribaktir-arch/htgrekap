@@ -5,7 +5,9 @@ import {
   Utensils, 
   ChevronDown, 
   X,
-  ShoppingBag
+  ShoppingBag,
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 import { 
   OrderItem, 
@@ -269,22 +271,22 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
 
   return (
     <div className="space-y-3 pt-1 pb-36 sm:pb-24 font-sans text-slate-800 dark:text-slate-200 transition-colors duration-200">
-      {/* Filter Pills Bar (Store, Kitchen, Calendar & Search) */}
-      <div className="flex w-full flex-wrap sm:flex-nowrap items-center gap-1.5">
-        {/* Pill Filters Group */}
-        <div className="flex shrink-0 flex-nowrap items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
-          {/* Pill 1: Store Icon + Dropdown */}
+      {/* Filter Bar (Filter Toko dan Dapur di Kiri, Pencarian di Kanan) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full">
+        {/* Left: Filter Toko dan Dapur */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Pill 1: Filter Toko */}
           <div className="relative inline-flex items-center">
-            <div className={`rounded-full px-2.5 py-1 border transition-all flex items-center gap-1 cursor-pointer min-h-8 ${
+            <div className={`rounded-xl px-2.5 py-1.5 border transition-all flex items-center gap-1.5 cursor-pointer text-xs ${
               selectedStoreFilter !== 'all' 
-                ? 'bg-indigo-50 dark:bg-indigo-950/80 border-indigo-300 dark:border-indigo-700 text-indigo-900 dark:text-indigo-200 font-bold'
-                : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-indigo-300 dark:hover:border-indigo-600'
+                ? 'bg-purple-100 dark:bg-purple-950/40 border-purple-300 dark:border-purple-500/50 text-purple-700 dark:text-purple-200 font-bold'
+                : 'bg-white dark:bg-slate-900/90 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs'
             }`}>
               <StoreIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-              <span className="max-w-[105px] truncate text-[11px] font-bold whitespace-nowrap">
+              <span className="max-w-[110px] sm:max-w-[140px] truncate font-semibold">
                 {selectedStoreFilter === 'all' ? 'Semua Toko' : `Toko ${selectedStoreFilter}`}
               </span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             </div>
             <select
               value={selectedStoreFilter}
@@ -301,18 +303,18 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
             </select>
           </div>
 
-          {/* Pill 2: Kitchen Icon + Dropdown */}
+          {/* Pill 2: Filter Dapur */}
           <div className="relative inline-flex items-center">
-            <div className={`rounded-full px-2.5 py-1 border transition-all flex items-center gap-1 cursor-pointer min-h-8 ${
+            <div className={`rounded-xl px-2.5 py-1.5 border transition-all flex items-center gap-1.5 cursor-pointer text-xs ${
               selectedKitchenFilter !== 'all'
-                ? 'bg-indigo-50 dark:bg-indigo-950/80 border-indigo-300 dark:border-indigo-700 text-indigo-900 dark:text-indigo-200 font-bold'
-                : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-indigo-300 dark:hover:border-indigo-600'
+                ? 'bg-purple-100 dark:bg-purple-950/40 border-purple-300 dark:border-purple-500/50 text-purple-700 dark:text-purple-200 font-bold'
+                : 'bg-white dark:bg-slate-900/90 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs'
             }`}>
               <Utensils className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-              <span className="max-w-[105px] truncate text-[11px] font-bold whitespace-nowrap">
+              <span className="max-w-[110px] sm:max-w-[140px] truncate font-semibold">
                 {selectedKitchenFilter === 'all' ? 'Semua Dapur' : `Dapur ${selectedKitchenFilter}`}
               </span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             </div>
             <select
               value={selectedKitchenFilter}
@@ -329,47 +331,106 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
             </select>
           </div>
 
-          {/* Pill 3: Filter Tanggal Dinamis (All Time, Hari Ini, Kemarin, Pilih Tanggal, Minggu, Bulan, Rentang) */}
+          {/* Pill 3: Filter Rentang Tanggal (Semua tanggal) */}
           <DateFilterPill
             value={dateFilter}
             onChange={handleDateFilterChange}
           />
 
-          <div className="inline-flex shrink-0 items-center gap-0 rounded-full border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 p-0.5">
-            <span className="px-1.5 text-[9px] font-bold text-slate-500 dark:text-slate-400">Status</span>
-            <button type="button" aria-pressed={statusFilter === 'all'} onClick={() => setStatusFilter('all')} className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-1 text-[9px] font-bold whitespace-nowrap transition-colors ${statusFilter === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>Semua <span className="font-black font-nominal">{dashboardMetrics.totalTrx}</span></button>
-            <button type="button" aria-pressed={statusFilter === 'delivered'} onClick={() => setStatusFilter((prev) => (prev === 'delivered' ? 'all' : 'delivered'))} className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-1 text-[9px] font-bold whitespace-nowrap transition-colors ${statusFilter === 'delivered' ? 'bg-emerald-600 text-white' : 'text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-slate-800'}`}>Delivery <span className="font-black font-nominal">{dashboardMetrics.deliveredTrx}</span></button>
-            <button type="button" aria-pressed={statusFilter === 'pending'} onClick={() => setStatusFilter((prev) => (prev === 'pending' ? 'all' : 'pending'))} className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-1 text-[9px] font-bold whitespace-nowrap transition-colors ${statusFilter === 'pending' ? 'bg-rose-600 text-white' : 'text-rose-800 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-slate-800'}`}>Pending <span className="font-black font-nominal">{dashboardMetrics.pendingTrx}</span></button>
+          {/* Toggle Switch Status: Status [Semua 141] [Delivery 77] [Pending 64] */}
+          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mr-0.5">Status</span>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('all')}
+              className={`rounded-full px-2.5 py-0.5 text-xs font-bold transition-all cursor-pointer ${
+                statusFilter === 'all'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Semua {dashboardMetrics.totalTrx}
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === 'delivered' ? 'all' : 'delivered')}
+              className={`rounded-full px-2.5 py-0.5 text-xs font-bold transition-all cursor-pointer ${
+                statusFilter === 'delivered'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300'
+              }`}
+            >
+              Delivery {dashboardMetrics.deliveredTrx}
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')}
+              className={`rounded-full px-2.5 py-0.5 text-xs font-bold transition-all cursor-pointer ${
+                statusFilter === 'pending'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'text-rose-700 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300'
+              }`}
+            >
+              Pending {dashboardMetrics.pendingTrx}
+            </button>
           </div>
+
+          {/* Reset active status filter */}
+          {statusFilter !== 'all' && (
+            <button
+              type="button"
+              onClick={() => setStatusFilter('all')}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[11px] font-medium cursor-pointer shadow-2xs"
+              title="Hapus Filter Status"
+            >
+              <span>Reset Status</span>
+              <X className="w-3 h-3" />
+            </button>
+          )}
 
           {/* Reset active store filter if clicked from breakdown */}
           {selectedStoreFilter !== 'all' && (
             <button
               type="button"
               onClick={() => setSelectedStoreFilter('all')}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] font-semibold cursor-pointer min-h-8"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[11px] font-medium cursor-pointer shadow-2xs"
               title="Hapus Filter Toko"
             >
               <span>Reset Toko</span>
               <X className="w-3 h-3" />
             </button>
           )}
+
+          {/* Reset active kitchen filter */}
+          {selectedKitchenFilter !== 'all' && (
+            <button
+              type="button"
+              onClick={() => setSelectedKitchenFilter('all')}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[11px] font-medium cursor-pointer shadow-2xs"
+              title="Hapus Filter Dapur"
+            >
+              <span>Reset Dapur</span>
+              <X className="w-3 h-3" />
+            </button>
+          )}
         </div>
 
-        {/* Search Input */}
-        <div className="relative min-w-[140px] flex-1">
-          <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+        {/* Right: Pencarian */}
+        <div className="relative w-full sm:w-64 md:w-72 shrink-0">
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             placeholder="Cari barang, toko, dapur..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-7 py-1.5 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-full text-[11px] font-semibold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition-all min-h-8"
+            className="w-full pl-8 pr-7 py-1.5 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-purple-500 transition-colors shadow-2xs"
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer p-1"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-0.5"
+              aria-label="Bersihkan pencarian"
             >
               <X className="w-3.5 h-3.5" />
             </button>

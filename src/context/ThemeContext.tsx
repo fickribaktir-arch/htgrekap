@@ -15,18 +15,18 @@ const THEME_STORAGE_KEY = 'htg_theme';
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
-    // Check localStorage - default to 'light' unless explicitly saved as 'dark'
+    // Check localStorage - default to 'dark' matching HTG Accounting visual standard
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem(THEME_STORAGE_KEY);
-        if (saved === 'dark') {
-          return 'dark';
+        if (saved === 'light') {
+          return 'light';
         }
       } catch {
         // fallback
       }
     }
-    return 'light';
+    return 'dark';
   });
 
   const applyTheme = (newTheme: Theme) => {
