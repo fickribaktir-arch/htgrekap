@@ -94,13 +94,18 @@ export function useOrderOperations({
       })
     );
 
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      showToast('Status diperbarui di lokal HP (mode offline)', 'info');
+      return;
+    }
+
     const res = await updateOrderInDb(id, {
       status: nextStatus,
       paymentStatus: nextPay,
       deliveryStatus: nextDel,
     });
     if (!res.success) {
-      showToast(`Gagal update status: ${res.error}`, 'error');
+      showToast(`Tersimpan di lokal HP (koneksi terputus)`, 'info');
     }
   }, [setOrders, setInvoices, showToast]);
 
@@ -139,13 +144,18 @@ export function useOrderOperations({
       })
     );
 
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      showToast(`Status pembayaran diperbarui (${paymentStatus}) di lokal HP (offline)`, 'info');
+      return;
+    }
+
     const res = await updateOrderInDb(id, {
       paymentStatus,
       status: newStatus,
     });
     if (!res.success) {
       setDbError(res.error || 'Gagal update status pembayaran');
-      showToast(`Gagal update status pembayaran: ${res.error}`, 'error');
+      showToast(`Status pembayaran diperbarui di lokal HP (offline / server belum terjangkau)`, 'info');
     } else {
       showToast(`Status pembayaran berhasil diperbarui (${paymentStatus})`, 'success');
     }
@@ -185,13 +195,18 @@ export function useOrderOperations({
       })
     );
 
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      showToast(`Status pengiriman diperbarui (${deliveryStatus}) di lokal HP (offline)`, 'info');
+      return;
+    }
+
     const res = await updateOrderInDb(id, {
       deliveryStatus,
       status: newStatus,
     });
     if (!res.success) {
       setDbError(res.error || 'Gagal update status pengiriman');
-      showToast(`Gagal update status pengiriman: ${res.error}`, 'error');
+      showToast(`Status pengiriman diperbarui di lokal HP (offline / server belum terjangkau)`, 'info');
     } else {
       showToast(`Status pengiriman berhasil diperbarui (${deliveryStatus})`, 'success');
     }
@@ -457,6 +472,13 @@ export function useOrderOperations({
       });
 
       setIsLoadingDb(true);
+      const isCurrentlyOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      if (isCurrentlyOffline) {
+        setIsLoadingDb(false);
+        showToast(`Anda sedang offline. Perubahan (${itemsList.length} item) disimpan di lokal HP.`, 'info');
+        return;
+      }
+
       try {
         if (deletedIds.length > 0) {
           const deleteResult = await deleteOrdersFromDb(deletedIds);
@@ -483,10 +505,8 @@ export function useOrderOperations({
         }
         showToast(`Pesanan (${itemsList.length} item) berhasil diperbarui`, 'edit');
       } catch (err: any) {
-        console.error('[handleSaveOrder batch edit error]:', err);
-        const errorMessage = err?.message || 'Gagal menyimpan pembaruan ke database';
-        setDbError(errorMessage);
-        showToast(`Gagal menyimpan perubahan: ${errorMessage}`, 'error');
+        console.warn('[handleSaveOrder batch edit error]:', err);
+        showToast(`Anda sedang offline / koneksi terputus. Perubahan (${itemsList.length} item) tetap tersimpan di lokal HP.`, 'info');
       } finally {
         setIsLoadingDb(false);
       }
@@ -555,74 +575,87 @@ export function useOrderOperations({
     setOrders((prev) => [...newOrdersAdded, ...prev]);
     setSelectedDate(getTodayWIB());
 
+    const isCurrentlyOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+    if (isCurrentlyOffline) {
+      setIsLoadingDb(false);
+      showToast(`Anda sedang offline. ${newOrdersAdded.length} pesanan berhasil disimpan di lokal HP.`, 'info');
+      return;
+    }
+
     setIsLoadingDb(true);
     let successCount = 0;
     let lastError = '';
 
-    const batchRes = await saveOrdersBatchToDb(newOrdersAdded);
-    let finalItemsWithInvoice = newOrdersAdded;
-    if (batchRes.success && batchRes.data && Array.isArray(batchRes.data) && batchRes.data.length > 0) {
-      finalItemsWithInvoice = batchRes.data as OrderItem[];
-      setOrders((prev) => {
-        const idMap = new Map(finalItemsWithInvoice.map((it) => [it.id, it]));
-        return prev.map((o) => idMap.get(o.id) || o);
-      });
-      successCount = finalItemsWithInvoice.length;
-    } else if (batchRes.success) {
-      successCount = newOrdersAdded.length;
-    } else {
-      lastError = batchRes.error || 'Gagal menyimpan pesanan ke database';
-    }
+    try {
+      const batchRes = await saveOrdersBatchToDb(newOrdersAdded);
+      let finalItemsWithInvoice = newOrdersAdded;
+      if (batchRes.success && batchRes.data && Array.isArray(batchRes.data) && batchRes.data.length > 0) {
+        finalItemsWithInvoice = batchRes.data as OrderItem[];
+        setOrders((prev) => {
+          const idMap = new Map(finalItemsWithInvoice.map((it) => [it.id, it]));
+          return prev.map((o) => idMap.get(o.id) || o);
+        });
+        successCount = finalItemsWithInvoice.length;
+      } else if (batchRes.success) {
+        successCount = newOrdersAdded.length;
+      } else {
+        lastError = batchRes.error || 'Gagal menyimpan pesanan ke database';
+      }
 
-    if (finalItemsWithInvoice.length > 0) {
-      const firstItem = finalItemsWithInvoice[0];
-      const officialInvNum = firstItem.invoiceNumber || firstItem.invoice_number || '';
+      if (finalItemsWithInvoice.length > 0) {
+        const firstItem = finalItemsWithInvoice[0];
+        const officialInvNum = firstItem.invoiceNumber || firstItem.invoice_number || '';
 
-      const totalBeli = finalItemsWithInvoice.reduce((sum, it) => {
-        const rawQJ = Number(it.qty || 0);
-        const rawQB = (it as any).qtyBeli !== undefined && (it as any).qtyBeli !== null
-          ? Number((it as any).qtyBeli)
-          : ((it as any).qty_beli !== undefined && (it as any).qty_beli !== null
-            ? Number((it as any).qty_beli)
-            : rawQJ);
-        const rt = Math.max(0, Number(it.retur) || 0);
-        const qbe = Math.max(0, rawQB - rt);
-        return sum + qbe * Number(it.hargaBeli || 0);
-      }, 0);
-      const totalJual = finalItemsWithInvoice.reduce((sum, it) => {
-        const rawQJ = Number(it.qty || 0);
-        const rt = Math.max(0, Number(it.retur) || 0);
-        const qf = Math.max(0, rawQJ - rt);
-        return sum + qf * Number(it.hargaJual || 0);
-      }, 0);
-      const newInvoiceRec: InvoiceRecord = {
-        id: `tx-${Date.now()}`,
-        invoiceNumber: officialInvNum,
-        tanggalPrint: firstItem.tanggal,
-        createdAt: createdDate,
-        tujuanDapur: firstItem.tujuanDapur,
-        dapur_id: firstItem.dapur_id || null,
-        toko: firstItem.toko,
-        toko_id: firstItem.toko_id || null,
-        items: finalItemsWithInvoice,
-        totalBeli,
-        totalJual,
-        totalProfit: totalJual - totalBeli,
-        pemasok: firstItem.pemasok,
-        pemasok_id: firstItem.pemasok_id || null,
-        status: firstItem.paymentStatus || 'UNPAID',
-      };
-      setInvoices((prev) => [newInvoiceRec, ...prev]);
-      await saveTransactionToDb(newInvoiceRec);
-    }
+        const totalBeli = finalItemsWithInvoice.reduce((sum, it) => {
+          const rawQJ = Number(it.qty || 0);
+          const rawQB = (it as any).qtyBeli !== undefined && (it as any).qtyBeli !== null
+            ? Number((it as any).qtyBeli)
+            : ((it as any).qty_beli !== undefined && (it as any).qty_beli !== null
+              ? Number((it as any).qty_beli)
+              : rawQJ);
+          const rt = Math.max(0, Number(it.retur) || 0);
+          const qbe = Math.max(0, rawQB - rt);
+          return sum + qbe * Number(it.hargaBeli || 0);
+        }, 0);
+        const totalJual = finalItemsWithInvoice.reduce((sum, it) => {
+          const rawQJ = Number(it.qty || 0);
+          const rt = Math.max(0, Number(it.retur) || 0);
+          const qf = Math.max(0, rawQJ - rt);
+          return sum + qf * Number(it.hargaJual || 0);
+        }, 0);
+        const newInvoiceRec: InvoiceRecord = {
+          id: `tx-${Date.now()}`,
+          invoiceNumber: officialInvNum,
+          tanggalPrint: firstItem.tanggal,
+          createdAt: createdDate,
+          tujuanDapur: firstItem.tujuanDapur,
+          dapur_id: firstItem.dapur_id || null,
+          toko: firstItem.toko,
+          toko_id: firstItem.toko_id || null,
+          items: finalItemsWithInvoice,
+          totalBeli,
+          totalJual,
+          totalProfit: totalJual - totalBeli,
+          pemasok: firstItem.pemasok,
+          pemasok_id: firstItem.pemasok_id || null,
+          status: firstItem.paymentStatus || 'UNPAID',
+        };
+        setInvoices((prev) => [newInvoiceRec, ...prev]);
+        await saveTransactionToDb(newInvoiceRec).catch(() => {});
+      }
 
-    setIsLoadingDb(false);
-
-    if (successCount === newOrdersAdded.length) {
-      showToast(`${successCount} pesanan berhasil tersimpan`, 'success');
-    } else {
-      setDbError(lastError);
-      showToast(`${newOrdersAdded.length} pesanan tersimpan di HP. Error sync: ${lastError}`, 'info');
+      if (successCount === newOrdersAdded.length) {
+        showToast(`${successCount} pesanan berhasil tersimpan`, 'success');
+      } else {
+        setDbError(lastError);
+        showToast(`Anda sedang offline / server tidak terjangkau. ${newOrdersAdded.length} pesanan tersimpan di lokal HP.`, 'info');
+      }
+    } catch (err: any) {
+      console.warn('[handleSaveOrder offline/sync error]:', err);
+      showToast(`Anda sedang offline / server tidak terjangkau. ${newOrdersAdded.length} pesanan tersimpan di lokal HP.`, 'info');
+    } finally {
+      setIsLoadingDb(false);
     }
   }, [orders, editingOrder, editingBatchOrders, masterToko, masterPemasok, masterDapur, setOrders, setSelectedDate, setIsLoadingDb, setInvoices, showToast, setDbError]);
 
@@ -643,6 +676,20 @@ export function useOrderOperations({
       onConfirm: async () => {
         setIsLoadingDb(true);
         setConfirmState((prev) => (prev ? { ...prev, isLoading: true } : null));
+
+        const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+        if (isOffline) {
+          if (targetOrder) {
+            setOrders((prev) => prev.filter((o) => o.id !== id));
+            setInvoices((prev) => prev.filter((inv) => inv.id !== id && !inv.items?.some((it) => it.id === id)));
+          } else if (targetInvoice) {
+            setInvoices((prev) => prev.filter((inv) => inv.id !== id));
+          }
+          setIsLoadingDb(false);
+          setConfirmState(null);
+          showToast('Data berhasil dihapus dari lokal HP (mode offline)', 'delete');
+          return;
+        }
 
         try {
           if (targetOrder) {

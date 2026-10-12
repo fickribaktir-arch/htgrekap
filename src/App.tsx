@@ -58,16 +58,16 @@ import {
 import { DashboardSummaryMetrics } from './lib/orderValidation';
 
 export default function App() {
-  // Pure in-memory orders and invoices state populated from Supabase as single source of truth
-  const [orders, setOrders] = useState<OrderItem[]>([]);
+  // Local-first persistent state: langsung tampilkan data lokal terakhir saat offline maupun awal muat
+  const [orders, setOrders] = useLocalStorage<OrderItem[]>('dapur_tracker_orders_cache_v4', []);
   const [kitchens, setKitchens] = useLocalStorage<Kitchen[]>('dapur_tracker_kitchens_v4', INITIAL_KITCHENS);
   const [stores, setStores] = useLocalStorage<StoreType[]>('dapur_tracker_stores_v4', INITIAL_STORES);
   const [pemasokList, setPemasokList] = useLocalStorage<string[]>('dapur_tracker_pemasok_v4', INITIAL_PEMASOK);
-  const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
+  const [invoices, setInvoices] = useLocalStorage<InvoiceRecord[]>('dapur_tracker_invoices_cache_v4', []);
   const [exportHistory, setExportHistory] = useLocalStorage<ExportHistoryItem[]>('dapur_export_history_v1', []);
   const [notes, setNotes] = useLocalStorage<NoteItem[]>('dapur_highlight_notes_v1', []);
   const [dashboardPeriod, setDashboardPeriod] = useLocalStorage<DashboardPeriod>('dapur_dashboard_period_v3', 'all_time');
-  const [operationalExpenses, setOperationalExpenses] = useState<OperationalExpense[]>([]);
+  const [operationalExpenses, setOperationalExpenses] = useLocalStorage<OperationalExpense[]>('dapur_tracker_expenses_v1', []);
   const [dashboardFinancialMetrics, setDashboardFinancialMetrics] = useState<DashboardSummaryMetrics>({
     totalTrx: 0,
     deliveredTrx: 0,
@@ -433,82 +433,82 @@ export default function App() {
 
   // Operational Expenses CRUD Handlers
   const handleCreateOperationalExpense = useCallback(async (data: Partial<OperationalExpense>) => {
+    const isCurrentlyOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    const localItem: OperationalExpense = {
+      id: data.id || `exp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      tanggal: data.tanggal || new Date().toISOString().slice(0, 10),
+      kategori: data.kategori || 'Lainnya',
+      nominal: Number(data.nominal) || 0,
+      metodePembayaran: data.metodePembayaran || data.metode_pembayaran || 'Tunai',
+      metode_pembayaran: data.metodePembayaran || data.metode_pembayaran || 'Tunai',
+      keterangan: data.keterangan || '',
+      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    if (isCurrentlyOffline) {
+      setOperationalExpenses((prev) => [localItem, ...prev]);
+      showToast('Anda sedang offline. Pengeluaran disimpan di lokal HP.', 'info');
+      return;
+    }
+
     try {
       const res = await createOperationalExpenseInDb(data);
       if (res.success && res.expense) {
         setOperationalExpenses((prev) => [res.expense!, ...prev]);
         showToast('Pengeluaran operasional berhasil dicatat!', 'success');
       } else {
-        // Fallback: simpan ke penyimpanan lokal HP jika database belum siap
-        const localItem: OperationalExpense = {
-          id: data.id || `exp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          tanggal: data.tanggal || new Date().toISOString().slice(0, 10),
-          kategori: data.kategori || 'Lainnya',
-          nominal: Number(data.nominal) || 0,
-          metodePembayaran: data.metodePembayaran || data.metode_pembayaran || 'Tunai',
-          metode_pembayaran: data.metodePembayaran || data.metode_pembayaran || 'Tunai',
-          keterangan: data.keterangan || '',
-          createdAt: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
         setOperationalExpenses((prev) => [localItem, ...prev]);
-        showToast(
-          res.error?.includes('Tabel')
-            ? 'Disimpan lokal! Jalankan skrip SQL di Supabase agar tersimpan ke cloud.'
-            : (res.error || 'Disimpan di penyimpanan lokal.'),
-          'info'
-        );
+        showToast('Server offline / belum terhubung. Disimpan di lokal HP.', 'info');
       }
     } catch (err: any) {
-      const localItem: OperationalExpense = {
-        id: data.id || `exp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        tanggal: data.tanggal || new Date().toISOString().slice(0, 10),
-        kategori: data.kategori || 'Lainnya',
-        nominal: Number(data.nominal) || 0,
-        metodePembayaran: data.metodePembayaran || data.metode_pembayaran || 'Tunai',
-        metode_pembayaran: data.metodePembayaran || data.metode_pembayaran || 'Tunai',
-        keterangan: data.keterangan || '',
-        createdAt: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
       setOperationalExpenses((prev) => [localItem, ...prev]);
-      showToast('Disimpan lokal! Silakan jalankan skrip SQL di Supabase.', 'info');
+      showToast('Anda sedang offline. Pengeluaran disimpan di lokal HP.', 'info');
     }
   }, [showToast, setOperationalExpenses]);
 
   const handleUpdateOperationalExpense = useCallback(async (id: string, data: Partial<OperationalExpense>) => {
+    const isCurrentlyOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    setOperationalExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...data, updatedAt: new Date().toISOString() } : e)));
+
+    if (isCurrentlyOffline) {
+      showToast('Anda sedang offline. Perubahan pengeluaran disimpan di lokal HP.', 'info');
+      return;
+    }
+
     try {
       const res = await updateOperationalExpenseInDb(id, data);
       if (res.success && res.expense) {
         setOperationalExpenses((prev) => prev.map((e) => (e.id === id ? res.expense! : e)));
         showToast('Pengeluaran operasional berhasil diperbarui!', 'edit');
       } else {
-        setOperationalExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...data, updatedAt: new Date().toISOString() } : e)));
-        showToast('Pengeluaran diperbarui di penyimpanan lokal.', 'info');
+        showToast('Perubahan diperbarui di penyimpanan lokal HP.', 'info');
       }
     } catch (err: any) {
-      setOperationalExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...data, updatedAt: new Date().toISOString() } : e)));
-      showToast('Pengeluaran diperbarui di penyimpanan lokal.', 'info');
+      showToast('Perubahan diperbarui di penyimpanan lokal HP (offline).', 'info');
     }
   }, [showToast, setOperationalExpenses]);
 
   const handleDeleteOperationalExpense = useCallback(async (id: string) => {
+    const isCurrentlyOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    setOperationalExpenses((prev) => prev.filter((e) => e.id !== id));
+
+    if (isCurrentlyOffline) {
+      showToast('Anda sedang offline. Pengeluaran dihapus dari lokal HP.', 'delete');
+      return;
+    }
+
     try {
       const res = await deleteOperationalExpenseInDb(id);
       if (res.success) {
-        setOperationalExpenses((prev) => prev.filter((e) => e.id !== id));
         showToast('Pengeluaran operasional berhasil dihapus!', 'delete');
       } else {
-        setOperationalExpenses((prev) => prev.filter((e) => e.id !== id));
-        showToast('Pengeluaran dihapus dari penyimpanan lokal.', 'delete');
+        showToast('Pengeluaran dihapus dari penyimpanan lokal HP.', 'delete');
       }
     } catch (err: any) {
-      setOperationalExpenses((prev) => prev.filter((e) => e.id !== id));
-      showToast('Pengeluaran dihapus dari penyimpanan lokal.', 'delete');
+      showToast('Pengeluaran dihapus dari penyimpanan lokal HP.', 'delete');
     }
   }, [showToast, setOperationalExpenses]);
 

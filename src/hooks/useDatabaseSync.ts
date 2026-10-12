@@ -37,6 +37,14 @@ export function useDatabaseSync({
 
   const loadDatabaseData = useCallback(async (showToastNotice = false) => {
     if (isFetchingDataRef.current) return;
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setIsOnline(false);
+      setIsLoadingDb(false);
+      showToast('Anda sedang offline. Menampilkan data lokal terakhir.', 'info');
+      return;
+    }
+
     isFetchingDataRef.current = true;
     setIsLoadingDb(true);
     setDbError(null);
@@ -79,9 +87,7 @@ export function useDatabaseSync({
       if (ordersRes.error && txRes.error && notesRes.error) {
         const errText = ordersRes.error || txRes.error || notesRes.error || 'Gagal koneksi ke database Supabase';
         setDbError(errText);
-        if (showToastNotice) {
-          showToast(`Gagal: ${errText}`, 'error');
-        }
+        showToast('Sedang offline / koneksi terputus. Menampilkan data lokal terakhir.', 'info');
       } else if (showToastNotice) {
         showToast(
           `Berhasil memuat ${loadedOrdersCount} pesanan, ${loadedExpensesCount} pengeluaran, ${loadedNotesCount} catatan & ${loadedInvoicesCount} transaksi dari Supabase!`,
@@ -91,9 +97,7 @@ export function useDatabaseSync({
     } catch (err: any) {
       console.warn('Gagal memuat data dari Supabase (menggunakan mode data lokal HP):', err);
       setDbError(err?.message || 'Gagal koneksi ke Supabase');
-      if (showToastNotice) {
-        showToast(`Gagal: ${err?.message || 'Tidak dapat terhubung'}`, 'error');
-      }
+      showToast('Mode offline: Menampilkan data lokal terakhir dari perangkat.', 'info');
     } finally {
       setIsLoadingDb(false);
       isFetchingDataRef.current = false;
@@ -115,7 +119,7 @@ export function useDatabaseSync({
 
     const handleOffline = () => {
       setIsOnline(false);
-      showToast('Mode offline aktif. Data tetap tersimpan aman di HP.', 'info');
+      showToast('Anda sedang offline. Menampilkan data lokal terakhir.', 'info');
     };
 
     const handleVisibility = () => {
