@@ -270,9 +270,9 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
   return (
     <div className="space-y-3 pt-1 pb-36 sm:pb-24 font-sans text-slate-800 dark:text-slate-200 transition-colors duration-200">
       {/* Filter Pills Bar (Store, Kitchen, Calendar & Search) */}
-      <div className="flex w-full flex-nowrap items-center gap-1.5">
+      <div className="flex w-full flex-wrap sm:flex-nowrap items-center gap-1.5">
         {/* Pill Filters Group */}
-        <div className="flex shrink-0 flex-nowrap items-center gap-1">
+        <div className="flex shrink-0 flex-nowrap items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
           {/* Pill 1: Store Icon + Dropdown */}
           <div className="relative inline-flex items-center">
             <div className={`rounded-full px-2.5 py-1 border transition-all flex items-center gap-1 cursor-pointer min-h-8 ${
