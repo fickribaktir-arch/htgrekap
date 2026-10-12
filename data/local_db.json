@@ -274,6 +274,55 @@
       ],
       "created_at": "2026-10-06T04:48:28.829Z",
       "updated_at": "2026-10-06T04:48:28.999Z"
+    },
+    {
+      "id": "inv-rec-1791775994414",
+      "invoice_number": "LB/13/X/2026",
+      "tanggal": "2026-10-12",
+      "tanggal_print": "12 Oktober 2026",
+      "pemasok": "",
+      "barang": "Tahu (2522)",
+      "toko": "LB / Luweng Boga",
+      "dapur": "Wringinputih 4",
+      "qty": 2522,
+      "harga_beli": 756600,
+      "total": 1008800,
+      "total_profit": 252200,
+      "status_pembayaran": "PAID",
+      "items": [
+        {
+          "id": "ord-1791772971867-0-670",
+          "namaBarang": "Tahu",
+          "qty": 2522,
+          "qtyBeli": 2522,
+          "qty_beli": 2522,
+          "notaId": "nota-1791772971866-0ytcl",
+          "nota_id": "nota-1791772971866-0ytcl",
+          "satuan": "Pcs",
+          "hargaBeli": 300,
+          "hargaJual": 400,
+          "toko": "LB / Luweng Boga",
+          "toko_id": 1,
+          "tujuanDapur": "Wringinputih 4",
+          "dapur_id": 5,
+          "pemasok": "Jendral tahu",
+          "pemasok_id": 72,
+          "status": "pending",
+          "paymentStatus": "UNPAID",
+          "status_pembayaran": "UNPAID",
+          "deliveryStatus": "PEMASOK",
+          "status_pengiriman": "PEMASOK",
+          "tanggal": "2026-10-12",
+          "createdAt": "2026-10-12T02:42:52.598+00:00",
+          "catatan": "",
+          "cashback": 0,
+          "retur": 0,
+          "invoiceNumber": "LB/13/X/2026",
+          "invoice_number": "LB/13/X/2026"
+        }
+      ],
+      "created_at": "2026-10-12T03:34:04.370Z",
+      "updated_at": "2026-10-12T03:34:04.558Z"
     }
   ],
   "notes": [],
@@ -681,8 +730,8 @@
       "seq": 1,
       "toko_id": "toko-htg",
       "nomor": "HTG/1/I/2027",
-      "dibuat_pada": "2026-10-11T03:44:31.141Z",
-      "diubah_pada": "2026-10-11T03:44:31.142Z"
+      "dibuat_pada": "2026-10-12T03:44:28.122Z",
+      "diubah_pada": "2026-10-12T03:44:28.123Z"
     },
     {
       "nota_id": "nota-B",
@@ -690,8 +739,8 @@
       "seq": 2,
       "toko_id": "toko-htg",
       "nomor": "HTG/2/X/2026",
-      "dibuat_pada": "2026-10-11T03:44:31.141Z",
-      "diubah_pada": "2026-10-11T03:44:31.141Z"
+      "dibuat_pada": "2026-10-12T03:44:28.122Z",
+      "diubah_pada": "2026-10-12T03:44:28.122Z"
     },
     {
       "nota_id": "nota-C",
@@ -699,14 +748,14 @@
       "seq": 3,
       "toko_id": "toko-htg",
       "nomor": "HTG/3/X/2026",
-      "dibuat_pada": "2026-10-11T03:44:31.142Z",
-      "diubah_pada": "2026-10-11T03:44:31.142Z"
+      "dibuat_pada": "2026-10-12T03:44:28.123Z",
+      "diubah_pada": "2026-10-12T03:44:28.123Z"
     }
   ],
   "invoice_number_log": [
     {
-      "id": "log-1791690271142-v81sy",
-      "waktu": "2026-10-11T03:44:31.142Z",
+      "id": "log-1791776668123-jn4q6",
+      "waktu": "2026-10-12T03:44:28.123Z",
       "user_info": "system",
       "nota_id": "nota-A",
       "nomor_lama": "HTG/1/X/2026",
