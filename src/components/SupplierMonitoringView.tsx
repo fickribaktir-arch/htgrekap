@@ -22,6 +22,7 @@ import {
 } from '../lib/formatters';
 import { DateFilterPill, DateFilterValue } from './DateFilterPill';
 import { Pagination } from './Pagination';
+import { PaymentConfirmModal } from './PaymentConfirmModal';
 
 const PAGE_SIZE_OPTIONS = [20, 40, 60, 80, 100];
 
@@ -257,16 +258,40 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
     return filteredPaymentGroups.slice(start, start + pageSize);
   }, [filteredPaymentGroups, currentPage, pageSize]);
 
-  // Toggle handler status bayar ke pemasok
-  const handleTogglePayment = useCallback((item: OrderItem) => {
+  // State konfirmasi perubahan status bayar pemasok (mencegah salah pencet)
+  const [paymentToConfirm, setPaymentToConfirm] = useState<{
+    item: OrderItem;
+    groupItems: OrderItem[];
+    currentPay: PaymentStatus;
+    nextPay: PaymentStatus;
+    subtotalBeli: number;
+  } | null>(null);
+
+  // Trigger modal konfirmasi status bayar ke pemasok
+  const handleRequestPaymentToggle = useCallback((item: OrderItem, subtotalBeli: number) => {
     const currentPay = getGroupPayStatus(item);
     const nextPay: PaymentStatus = currentPay === 'PAID' ? 'UNPAID' : 'PAID';
+    const groupItems = paymentGroups.get(getPaymentGroupKey(item)) || [item];
+    setPaymentToConfirm({
+      item,
+      groupItems,
+      currentPay,
+      nextPay,
+      subtotalBeli,
+    });
+  }, [getGroupPayStatus, getPaymentGroupKey, paymentGroups]);
+
+  // Eksekusi konfirmasi status bayar
+  const handleConfirmPayment = useCallback(() => {
+    if (!paymentToConfirm) return;
+    const { item, groupItems, nextPay } = paymentToConfirm;
     if (onUpdateGroupPaymentStatus) {
-      onUpdateGroupPaymentStatus(paymentGroups.get(getPaymentGroupKey(item)) || [item], nextPay);
+      onUpdateGroupPaymentStatus(groupItems, nextPay);
     } else if (onUpdatePaymentStatus) {
       onUpdatePaymentStatus(item.id, nextPay);
     }
-  }, [getGroupPayStatus, getPaymentGroupKey, paymentGroups, onUpdateGroupPaymentStatus, onUpdatePaymentStatus]);
+    setPaymentToConfirm(null);
+  }, [paymentToConfirm, onUpdateGroupPaymentStatus, onUpdatePaymentStatus]);
 
   return (
     <div className="space-y-4 pt-1 pb-36 sm:pb-24 font-sans text-slate-800 dark:text-slate-200 transition-colors">
@@ -594,15 +619,16 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
                       {groupItemIndex === 0 && <td rowSpan={groupItems.length} className="py-3 px-2 text-center align-middle whitespace-nowrap border-l border-slate-100 dark:border-slate-800">
                         <button
                           type="button"
-                          onClick={() => handleTogglePayment(firstItem)}
+                          data-testid="toggle-supplier-payment-btn"
+                          onClick={() => handleRequestPaymentToggle(firstItem, subtotalBeli)}
                           className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black border transition-all active:scale-95 cursor-pointer min-h-[32px] ${
                             isPaid
                               ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 shadow-2xs'
                               : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700 hover:bg-rose-100 shadow-2xs'
                           }`}
                           title={isPaid
-                            ? 'Status nota ke pemasok ini LUNAS. Klik untuk ubah semua item pemasok pada nota menjadi UNPAID.'
-                            : 'Status nota ke pemasok ini BELUM DIBAYAR. Klik untuk ubah semua item pemasok pada nota menjadi PAID.'}
+                            ? 'Status nota ke pemasok ini LUNAS. Klik untuk konfirmasi ubah menjadi UNPAID.'
+                            : 'Status nota ke pemasok ini BELUM DIBAYAR. Klik untuk konfirmasi pelunasan (PAID).'}
                         >
                           {isPaid ? <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /><span>PAID</span></> : <><Clock className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" /><span>UNPAID</span></>}
                         </button>
@@ -652,6 +678,26 @@ export const SupplierMonitoringView: React.FC<SupplierMonitoringViewProps> = Rea
           </div>
         )}
       </div>
+
+      {/* Modal Konfirmasi Pembayaran Tagihan Pemasok (PAID <-> UNPAID) */}
+      {paymentToConfirm && (
+        <PaymentConfirmModal
+          isOpen={true}
+          currentStatus={paymentToConfirm.currentPay}
+          nextStatus={paymentToConfirm.nextPay}
+          details={{
+            targetName: paymentToConfirm.item.pemasok || 'Pemasok',
+            targetType: 'supplier',
+            invoiceNumber: paymentToConfirm.item.notaId || paymentToConfirm.item.invoiceNumber || undefined,
+            notaId: paymentToConfirm.item.notaId,
+            itemCount: paymentToConfirm.groupItems.length,
+            totalNominal: paymentToConfirm.subtotalBeli,
+            date: paymentToConfirm.item.tanggal,
+          }}
+          onConfirm={handleConfirmPayment}
+          onCancel={() => setPaymentToConfirm(null)}
+        />
+      )}
     </div>
   );
 });

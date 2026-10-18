@@ -19,6 +19,7 @@ import { Pagination } from './Pagination';
 import { TableSkeleton } from './TableSkeleton';
 import { ActionMenuPortal } from './ActionMenuPortal';
 import { PrintVariantDropdownPortal } from './PrintVariantDropdownPortal';
+import { PaymentConfirmModal } from './PaymentConfirmModal';
 
 interface OrderGroup {
   id: string;
@@ -40,6 +41,7 @@ interface OrderRowProps {
   isActiveMenu: boolean;
   onToggleActiveMenu: (id: string, rect: DOMRect, group: OrderGroup) => void;
   onGroupPaymentChange: (groupItems: OrderItem[], status: PaymentStatus) => void;
+  onRequestPaymentConfirm?: (group: OrderGroup, nextStatus: PaymentStatus) => void;
   onGroupDeliveryChange: (groupItems: OrderItem[], status: DeliveryStatus) => void;
   onOpenInvoiceModal: (items: OrderItem[], kitchenName: string, storeName: string) => void;
   onExportInvoicePdf?: (items: OrderItem[], kitchenName: string, storeName: string, dateStr?: string, variant?: InvoicePriceVariant) => void;
@@ -64,6 +66,7 @@ const OrderRow: React.FC<OrderRowProps> = React.memo(({
   isActiveMenu,
   onToggleActiveMenu,
   onGroupPaymentChange,
+  onRequestPaymentConfirm,
   onGroupDeliveryChange,
   onOpenInvoiceModal,
   onExportInvoicePdf,
@@ -306,16 +309,21 @@ const OrderRow: React.FC<OrderRowProps> = React.memo(({
         >
           <button
             type="button"
+            data-testid="toggle-payment-btn"
             onClick={() => {
               const nextStatus: PaymentStatus = group.payStatus === 'PAID' ? 'UNPAID' : 'PAID';
-              onGroupPaymentChange(group.items, nextStatus);
+              if (onRequestPaymentConfirm) {
+                onRequestPaymentConfirm(group, nextStatus);
+              } else {
+                onGroupPaymentChange(group.items, nextStatus);
+              }
             }}
             className={`text-[9.5px] sm:text-[10px] font-black px-2 py-1 rounded-md border cursor-pointer transition-all active:scale-95 ${
               group.payStatus === 'PAID'
                 ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 shadow-2xs'
                 : 'bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700 hover:bg-rose-100 dark:hover:bg-rose-900/60 shadow-2xs'
             }`}
-            title="Klik untuk ubah Payment (PAID / UNPAID)"
+            title={group.payStatus === 'PAID' ? 'Status LUNAS. Klik untuk konfirmasi ubah ke UNPAID' : 'Status BELUM BAYAR. Klik untuk konfirmasi pelunasan (PAID)'}
           >
             {group.payStatus === 'PAID' ? 'PAID' : 'UNPAID'}
           </button>
@@ -480,6 +488,31 @@ export const OrdersTableView: React.FC<OrdersTableViewProps> = React.memo(({
     group: OrderGroup;
   } | null>(null);
 
+  const handleGroupPaymentChange = useCallback((groupItems: OrderItem[], newStatus: PaymentStatus) => {
+    if (onUpdateGroupPaymentStatus) {
+      onUpdateGroupPaymentStatus(groupItems, newStatus);
+    } else {
+      groupItems.forEach((it) => onUpdatePaymentStatus(it.id, newStatus));
+    }
+  }, [onUpdateGroupPaymentStatus, onUpdatePaymentStatus]);
+
+  // State konfirmasi perubahan status bayar (mencegah salah pencet)
+  const [paymentToConfirm, setPaymentToConfirm] = useState<{
+    group: OrderGroup;
+    nextStatus: PaymentStatus;
+  } | null>(null);
+
+  const handleRequestPaymentConfirm = useCallback((group: OrderGroup, nextStatus: PaymentStatus) => {
+    setPaymentToConfirm({ group, nextStatus });
+  }, []);
+
+  const handleConfirmPayment = useCallback(() => {
+    if (!paymentToConfirm) return;
+    const { group, nextStatus } = paymentToConfirm;
+    handleGroupPaymentChange(group.items, nextStatus);
+    setPaymentToConfirm(null);
+  }, [paymentToConfirm, handleGroupPaymentChange]);
+
   // Helper getters for status fields
   const getPayStatus = (item: OrderItem): PaymentStatus => {
     if (item.paymentStatus) return item.paymentStatus === 'PAID' ? 'PAID' : 'UNPAID';
@@ -588,13 +621,6 @@ export const OrdersTableView: React.FC<OrdersTableViewProps> = React.memo(({
     setActiveMenu((prev) => (prev?.id === id ? null : { id, rect, group }));
   }, []);
 
-  const handleGroupPaymentChange = useCallback((groupItems: OrderItem[], newStatus: PaymentStatus) => {
-    if (onUpdateGroupPaymentStatus) {
-      onUpdateGroupPaymentStatus(groupItems, newStatus);
-    } else {
-      groupItems.forEach((it) => onUpdatePaymentStatus(it.id, newStatus));
-    }
-  }, [onUpdateGroupPaymentStatus, onUpdatePaymentStatus]);
 
   const handleGroupDeliveryChange = useCallback((groupItems: OrderItem[], newStatus: DeliveryStatus) => {
     if (onUpdateGroupDeliveryStatus) {
@@ -736,6 +762,7 @@ export const OrdersTableView: React.FC<OrdersTableViewProps> = React.memo(({
                     isActiveMenu={activeMenu?.id === group.id}
                     onToggleActiveMenu={handleToggleActiveMenu}
                     onGroupPaymentChange={handleGroupPaymentChange}
+                    onRequestPaymentConfirm={handleRequestPaymentConfirm}
                     onGroupDeliveryChange={handleGroupDeliveryChange}
                     onOpenInvoiceModal={onOpenInvoiceModal}
                     onExportInvoicePdf={onExportInvoicePdf}
@@ -791,6 +818,31 @@ export const OrdersTableView: React.FC<OrdersTableViewProps> = React.memo(({
         }
       }}
     />
+
+    {/* Modal Konfirmasi Ubah Status Pembayaran (PAID <-> UNPAID) */}
+    {paymentToConfirm && (
+      <PaymentConfirmModal
+        isOpen={true}
+        currentStatus={paymentToConfirm.group.payStatus}
+        nextStatus={paymentToConfirm.nextStatus}
+        details={{
+          targetName: `${paymentToConfirm.group.tujuanDapur || 'Dapur'} (${paymentToConfirm.group.toko || 'Toko'})`,
+          targetType: 'customer',
+          invoiceNumber: paymentToConfirm.group.invoiceNumber || undefined,
+          itemCount: paymentToConfirm.group.items.length,
+          totalNominal: paymentToConfirm.group.items.reduce((sum, it) => {
+            const q = parseIndonesianNumber(it.qty) || 0;
+            const r = Math.min(q, Math.max(0, Number(it.retur) || 0));
+            const finalQ = Math.max(0, q - r);
+            const p = parseIndonesianNumber(it.hargaJual) || 0;
+            return sum + finalQ * p;
+          }, 0),
+          date: paymentToConfirm.group.tanggal,
+        }}
+        onConfirm={handleConfirmPayment}
+        onCancel={() => setPaymentToConfirm(null)}
+      />
+    )}
   </div>
 );
 });

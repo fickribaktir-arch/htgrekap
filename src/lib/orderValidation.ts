@@ -26,7 +26,15 @@ export interface DashboardSummaryMetrics {
   displayedTrx: number;
   displayedItems: number;
   totalPenjualan: number;
+  totalPenjualanPaid: number;
+  totalPenjualanUnpaid: number;
+  countPenjualanPaid: number;
+  countPenjualanUnpaid: number;
   totalPengeluaran: number;
+  totalPengeluaranPaid: number;
+  totalPengeluaranUnpaid: number;
+  countPengeluaranPaid: number;
+  countPengeluaranUnpaid: number;
   totalCashback: number;
   biayaOperasional: number;
   totalLabaBersih: number;
@@ -186,7 +194,15 @@ export function computeAndValidateDashboardSummary(
 
   // Hitung Nilai Finansial Berdasarkan Data Pesanan Terfilter Aktif
   let totalPenjualan = 0;
+  let totalPenjualanPaid = 0;
+  let totalPenjualanUnpaid = 0;
+  let countPenjualanPaid = 0;
+  let countPenjualanUnpaid = 0;
   let totalPengeluaran = 0;
+  let totalPengeluaranPaid = 0;
+  let totalPengeluaranUnpaid = 0;
+  let countPengeluaranPaid = 0;
+  let countPengeluaranUnpaid = 0;
   let totalCashback = 0;
   let totalLabaBersih = 0;
 
@@ -213,6 +229,19 @@ export function computeAndValidateDashboardSummary(
     totalPenjualan += omzetItem;
     totalPengeluaran += modalItem;
     totalCashback += cashbackItem;
+
+    const isPaid = getItemPayStatus(item) === 'PAID';
+    if (isPaid) {
+      totalPenjualanPaid += omzetItem;
+      countPenjualanPaid++;
+      totalPengeluaranPaid += modalItem;
+      countPengeluaranPaid++;
+    } else {
+      totalPenjualanUnpaid += omzetItem;
+      countPenjualanUnpaid++;
+      totalPengeluaranUnpaid += modalItem;
+      countPengeluaranUnpaid++;
+    }
   }
 
   // Laba Bersih = Total Penjualan - Pengeluaran (Beli) - Total Cashback - Biaya Operasional
@@ -299,7 +328,15 @@ export function computeAndValidateDashboardSummary(
     displayedTrx,
     displayedItems,
     totalPenjualan,
+    totalPenjualanPaid,
+    totalPenjualanUnpaid,
+    countPenjualanPaid,
+    countPenjualanUnpaid,
     totalPengeluaran,
+    totalPengeluaranPaid,
+    totalPengeluaranUnpaid,
+    countPengeluaranPaid,
+    countPengeluaranUnpaid,
     totalCashback,
     biayaOperasional: safeBiayaOperasional,
     totalLabaBersih,

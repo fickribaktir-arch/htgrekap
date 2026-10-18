@@ -30,7 +30,7 @@ import {
   Banknote
 } from 'lucide-react';
 import { DashboardPeriod, NoteItem } from '../types';
-import { parseDateSafe, formatTanggalWeb, formatTanggalSimple, getTodayWIB } from '../lib/formatters';
+import { parseDateSafe, formatTanggalWeb, formatTanggalSimple, getTodayWIB, formatRupiah } from '../lib/formatters';
 import { DashboardSummaryMetrics } from '../lib/orderValidation';
 import { AnimatedCounter } from './AnimatedCounter';
 import { ThemeToggle } from './ThemeToggle';
@@ -155,7 +155,11 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
     displayedItems,
     displayedTrx,
     totalPenjualan,
+    totalPenjualanPaid = 0,
+    totalPenjualanUnpaid = 0,
     totalPengeluaran,
+    totalPengeluaranPaid = 0,
+    totalPengeluaranUnpaid = 0,
     totalCashback,
     totalLabaBersih,
     biayaOperasional,
@@ -286,31 +290,79 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5 items-stretch">
           {/* Card 1: Total Penjualan */}
           <div className="min-w-0 bg-[#eff4fe] dark:bg-indigo-950/40 border border-[#d8e5fd] dark:border-indigo-900/50 rounded-2xl p-3 flex flex-col justify-between shadow-2xs transition-colors">
-            <div className="flex items-center justify-between gap-1.5">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3b5998] dark:text-indigo-300 block truncate">Total Penjualan</span>
-              <div className="w-7 h-7 rounded-lg bg-[#3b5bf5] text-white flex items-center justify-center shrink-0 shadow-xs">
-                <TrendingUp className="w-3.5 h-3.5" />
+            <div>
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3b5998] dark:text-indigo-300 block truncate">Total Penjualan</span>
+                <div className="w-7 h-7 rounded-lg bg-[#3b5bf5] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div className="min-w-0 mt-2">
+                <span className="text-sm sm:text-base lg:text-lg font-black font-nominal text-slate-900 dark:text-slate-100 leading-tight tracking-tight truncate block">
+                  <AnimatedCounter value={totalPenjualan} format="rupiah" />
+                </span>
               </div>
             </div>
-            <div className="min-w-0 mt-2">
-              <span className="text-sm sm:text-base lg:text-lg font-black font-nominal text-slate-900 dark:text-slate-100 leading-tight tracking-tight truncate block">
-                <AnimatedCounter value={totalPenjualan} format="rupiah" />
-              </span>
+
+            {/* Detail Paid & Unpaid */}
+            <div className="mt-2.5 pt-2 border-t border-indigo-200/80 dark:border-indigo-900/60 flex flex-col gap-1">
+              <div className="flex items-center justify-between text-[10px] sm:text-[11px] leading-tight">
+                <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                  <span>Paid:</span>
+                </span>
+                <span className="font-bold font-nominal text-emerald-800 dark:text-emerald-300">
+                  {formatRupiah(totalPenjualanPaid)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[10px] sm:text-[11px] leading-tight">
+                <span className="inline-flex items-center gap-1 font-bold text-rose-600 dark:text-rose-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
+                  <span>Unpaid:</span>
+                </span>
+                <span className="font-bold font-nominal text-rose-700 dark:text-rose-300">
+                  {formatRupiah(totalPenjualanUnpaid)}
+                </span>
+              </div>
             </div>
           </div>
 
           {/* Card 2: Pembelian */}
           <div className="min-w-0 bg-[#eff8ff] dark:bg-sky-950/40 border border-[#cbe5fb] dark:border-sky-900/50 rounded-2xl p-3 flex flex-col justify-between shadow-2xs transition-colors">
-            <div className="flex items-center justify-between gap-1.5">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#0369a1] dark:text-sky-300 block truncate">Pembelian</span>
-              <div className="w-7 h-7 rounded-lg bg-[#0284c7] text-white flex items-center justify-center shrink-0 shadow-xs">
-                <ShoppingBag className="w-3.5 h-3.5" />
+            <div>
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#0369a1] dark:text-sky-300 block truncate">Pembelian</span>
+                <div className="w-7 h-7 rounded-lg bg-[#0284c7] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div className="min-w-0 mt-2">
+                <span className="text-sm sm:text-base lg:text-lg font-black font-nominal text-slate-900 dark:text-slate-100 leading-tight tracking-tight truncate block">
+                  <AnimatedCounter value={totalPengeluaran} format="rupiah" />
+                </span>
               </div>
             </div>
-            <div className="min-w-0 mt-2">
-              <span className="text-sm sm:text-base lg:text-lg font-black font-nominal text-slate-900 dark:text-slate-100 leading-tight tracking-tight truncate block">
-                <AnimatedCounter value={totalPengeluaran} format="rupiah" />
-              </span>
+
+            {/* Detail Paid & Unpaid */}
+            <div className="mt-2.5 pt-2 border-t border-sky-200/80 dark:border-sky-900/60 flex flex-col gap-1">
+              <div className="flex items-center justify-between text-[10px] sm:text-[11px] leading-tight">
+                <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                  <span>Paid:</span>
+                </span>
+                <span className="font-bold font-nominal text-emerald-800 dark:text-emerald-300">
+                  {formatRupiah(totalPengeluaranPaid)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[10px] sm:text-[11px] leading-tight">
+                <span className="inline-flex items-center gap-1 font-bold text-rose-600 dark:text-rose-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
+                  <span>Unpaid:</span>
+                </span>
+                <span className="font-bold font-nominal text-rose-700 dark:text-rose-300">
+                  {formatRupiah(totalPengeluaranUnpaid)}
+                </span>
+              </div>
             </div>
           </div>
 

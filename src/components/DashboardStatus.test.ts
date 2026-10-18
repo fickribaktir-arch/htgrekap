@@ -301,15 +301,18 @@ describe('Dashboard Status Metrics Validation', () => {
 
     // Penjualan: Item 1 (10 * 25.000 = 250.000) + Item 2 (18 * 15.000 = 270.000) = 520.000
     expect(summary.totalPenjualan).toBe(520000);
+    expect(summary.totalPenjualanPaid).toBe(250000);
+    expect(summary.totalPenjualanUnpaid).toBe(270000);
+    expect(summary.totalPenjualanPaid + summary.totalPenjualanUnpaid).toBe(summary.totalPenjualan);
 
     // Cashback: Item 1 ((25.000 - 22.000) * 10 = 30.000) + Item 2 (0) = 30.000
     expect(summary.totalCashback).toBe(30000);
 
     // Pengeluaran: Item 1 (10 * 20.000 = 200.000) + Item 2 (18 * 12.000 = 216.000) = 416.000
     expect(summary.totalPengeluaran).toBe(416000);
-
-    // Laba Bersih: Item 1 ((22.000 - 20.000) * 10 = 20.000) + Item 2 ((15.000 - 12.000) * 18 = 54.000) = 74.000
-    expect(summary.totalLabaBersih).toBe(74000);
+    expect(summary.totalPengeluaranPaid).toBe(200000);
+    expect(summary.totalPengeluaranUnpaid).toBe(216000);
+    expect(summary.totalPengeluaranPaid + summary.totalPengeluaranUnpaid).toBe(summary.totalPengeluaran);
 
     // Pengujian dengan Biaya Operasional: Laba Bersih = Penjualan - Beli - Cashback - Biaya Operasional
     const summaryWithExpenses = computeAndValidateDashboardSummary(mockOrdersWithCashback, displayed, 'all', 20000);

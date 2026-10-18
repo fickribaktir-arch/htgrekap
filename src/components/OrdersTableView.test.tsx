@@ -177,4 +177,56 @@ describe('OrdersTableView - Verifikasi Urutan Kolom & Rumus Laba', () => {
     const labaCell2 = row2Tds[6].textContent || '';
     expect(labaCell2).toContain('75.000');
   });
+
+  it('memunculkan modal konfirmasi saat klik tombol payment (mencegah salah pencet)', async () => {
+    const handleUpdatePayment = vi.fn();
+    await act(async () => {
+      root.render(
+        <OrdersTableView
+          orders={mockOrders}
+          onUpdatePaymentStatus={handleUpdatePayment}
+          onUpdateDeliveryStatus={vi.fn()}
+          onEditOrder={vi.fn()}
+          onDuplicateOrder={vi.fn()}
+          onDeleteOrder={vi.fn()}
+          onOpenInvoiceModal={vi.fn()}
+        />
+      );
+    });
+
+    const paymentBtn = container.querySelector('[data-testid="toggle-payment-btn"]') as HTMLButtonElement | null;
+    expect(paymentBtn).not.toBeNull();
+
+    // 1. Klik tombol payment status (UNPAID)
+    await act(async () => {
+      paymentBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    // Belum memanggil fungsi update sebelum dikonfirmasi
+    expect(handleUpdatePayment).not.toHaveBeenCalled();
+
+    // Modal konfirmasi ter-render
+    const confirmModal = document.body.querySelector('[data-testid="payment-confirm-modal"]');
+    expect(confirmModal).not.toBeNull();
+    expect(document.body.textContent).toContain('Konfirmasi Pelunasan (PAID)');
+
+    // 2. Klik Batal
+    const cancelBtn = document.body.querySelector('[data-testid="payment-cancel-btn"]') as HTMLButtonElement | null;
+    await act(async () => {
+      cancelBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(handleUpdatePayment).not.toHaveBeenCalled();
+    expect(document.body.querySelector('[data-testid="payment-confirm-modal"]')).toBeNull();
+
+    // 3. Klik lagi dan konfirmasi "Ya, Tandai PAID"
+    await act(async () => {
+      paymentBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    const confirmBtn = document.body.querySelector('[data-testid="payment-confirm-btn"]') as HTMLButtonElement | null;
+    await act(async () => {
+      confirmBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(handleUpdatePayment).toHaveBeenCalled();
+  });
 });

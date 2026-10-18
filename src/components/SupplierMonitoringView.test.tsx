@@ -118,7 +118,7 @@ describe('SupplierMonitoringView Component', () => {
     expect(container.textContent).toContain('PAID');
   });
 
-  it('memanggil onUpdatePaymentStatus ketika tombol status pembayaran diklik', () => {
+  it('menampilkan modal konfirmasi dan memanggil onUpdatePaymentStatus hanya setelah dikonfirmasi', () => {
     const handleUpdatePaymentStatus = vi.fn();
     act(() => {
       root.render(
@@ -133,11 +133,25 @@ describe('SupplierMonitoringView Component', () => {
     const unpaidBtn = buttons.find((b) => b.textContent?.includes('UNPAID'));
     expect(unpaidBtn).toBeDefined();
 
+    // 1. Klik tombol UNPAID memunculkan modal konfirmasi (mencegah salah pencet)
     act(() => {
       unpaidBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    // Klik tombol UNPAID memicu update ke PAID
+    // Belum dipanggil sebelum konfirmasi ditekan
+    expect(handleUpdatePaymentStatus).not.toHaveBeenCalled();
+
+    // Modal konfirmasi ter-render di document.body via portal
+    const confirmBtn = document.body.querySelector('[data-testid="payment-confirm-btn"]') as HTMLButtonElement | null;
+    expect(confirmBtn).not.toBeNull();
+    expect(document.body.textContent).toContain('Konfirmasi Pembayaran Pemasok');
+
+    // 2. Klik tombol konfirmasi "Ya, Tandai PAID"
+    act(() => {
+      confirmBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    // Setelah konfirmasi disetujui, update status ke PAID dijalankan
     expect(handleUpdatePaymentStatus).toHaveBeenCalledWith('ord-1', 'PAID');
   });
 

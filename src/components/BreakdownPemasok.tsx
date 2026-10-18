@@ -15,6 +15,8 @@ export interface PemasokBreakdownItem {
   topItemQty: number;
   topItemUnit?: string;
   tokoList?: string[];
+  paidBeli?: number;
+  unpaidBeli?: number;
   percentageOfTotalBeli?: number;
 }
 
@@ -121,6 +123,17 @@ export const BreakdownPemasok: React.FC<BreakdownPemasokProps> = ({
                   <span className="text-xs sm:text-sm font-bold font-nominal text-rose-700 dark:text-rose-400 block leading-tight truncate">
                     {formatRupiah(item.totalBeli)}
                   </span>
+                  {(item.paidBeli !== undefined || item.unpaidBeli !== undefined) && (
+                    <div className="flex items-center justify-end gap-1.5 text-[9.5px] mt-0.5 font-medium">
+                      <span className="text-emerald-700 dark:text-emerald-400 font-bold font-nominal">
+                        Paid: {formatRupiah(item.paidBeli ?? 0)}
+                      </span>
+                      <span className="text-slate-300 dark:text-slate-600">/</span>
+                      <span className="text-rose-600 dark:text-rose-400 font-bold font-nominal">
+                        Unpaid: {formatRupiah(item.unpaidBeli ?? 0)}
+                      </span>
+                    </div>
+                  )}
                   <span className="text-[10px] text-slate-400 dark:text-slate-500 block">
                     {typeof item.percentageOfTotalBeli === 'number'
                       ? `${Math.round(item.percentageOfTotalBeli)}% total PO`
@@ -161,6 +174,12 @@ export const BreakdownPemasok: React.FC<BreakdownPemasokProps> = ({
                     <span className="text-xs font-bold font-nominal text-rose-700 dark:text-rose-300 block truncate mt-0.5">
                       {formatRupiah(item.totalBeli)}
                     </span>
+                    {(item.paidBeli !== undefined || item.unpaidBeli !== undefined) && (
+                      <div className="mt-1 pt-1 border-t border-rose-200/60 dark:border-rose-900/40 flex items-center justify-between text-[9px] font-bold">
+                        <span className="text-emerald-700 dark:text-emerald-400 font-nominal">P: {formatRupiah(item.paidBeli ?? 0)}</span>
+                        <span className="text-rose-600 dark:text-rose-400 font-nominal">U: {formatRupiah(item.unpaidBeli ?? 0)}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded-lg">

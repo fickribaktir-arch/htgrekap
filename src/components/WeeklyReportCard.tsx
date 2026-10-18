@@ -244,6 +244,8 @@ export const WeeklyReportCard: React.FC<WeeklyReportCardProps> = React.memo(({
       returQty: number;
       ditagihkanQty: number;
       totalBeli: number;
+      paidBeli: number;
+      unpaidBeli: number;
       orderCount: number;
       batchKeys: Set<string>;
       itemQtyMap: Record<string, { qty: number; unit?: string }>;
@@ -276,6 +278,8 @@ export const WeeklyReportCard: React.FC<WeeklyReportCardProps> = React.memo(({
           returQty: 0,
           ditagihkanQty: 0,
           totalBeli: 0,
+          paidBeli: 0,
+          unpaidBeli: 0,
           orderCount: 0,
           batchKeys: new Set<string>(),
           itemQtyMap: {},
@@ -289,6 +293,13 @@ export const WeeklyReportCard: React.FC<WeeklyReportCardProps> = React.memo(({
       map[pKey].ditagihkanQty += qBeliEfektif;
       map[pKey].totalBeli += itemBeli;
       map[pKey].orderCount += 1;
+
+      const isPaid = (item.paymentStatus || item.status_pembayaran || '').toUpperCase() === 'PAID' || item.status === 'selesai';
+      if (isPaid) {
+        map[pKey].paidBeli += itemBeli;
+      } else {
+        map[pKey].unpaidBeli += itemBeli;
+      }
 
       const bKey = item.notaId || item.nota_id || `${item.tanggal || item.createdAt || ''}_${item.tujuanDapur || ''}_${pKey}`;
       map[pKey].batchKeys.add(bKey);
@@ -320,6 +331,8 @@ export const WeeklyReportCard: React.FC<WeeklyReportCardProps> = React.memo(({
       return {
         pemasok,
         totalBeli: val.totalBeli,
+        paidBeli: val.paidBeli,
+        unpaidBeli: val.unpaidBeli,
         transactionCount: val.batchKeys.size || val.orderCount,
         orderCount: val.orderCount,
         totalQty: val.ditagihkanQty,
