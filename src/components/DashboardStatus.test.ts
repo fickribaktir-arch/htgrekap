@@ -249,7 +249,29 @@ describe('Dashboard Status Metrics Validation', () => {
     expect(summaryPending.isValid).toBe(true);
     expect(summaryPending.discrepancies).toEqual([]);
 
-    // 4. Skenario Mismatch / Anomali terdeteksi oleh validasi
+    // 4. Skenario Filter: 'paid'
+    const displayedPaid = filterOrdersByStatus(mockOrders, 'paid');
+    const summaryPaid = computeAndValidateDashboardSummary(mockOrders, displayedPaid, 'paid');
+
+    expect(summaryPaid.displayedTrx).toBe(summaryPaid.paidTrx);
+    expect(summaryPaid.displayedTrx).toBe(2); // nota-100 & nota-200 are paid
+    expect(summaryPaid.displayedItems).toBe(3);
+    expect(displayedPaid.every((it) => it.paymentStatus === 'PAID')).toBe(true);
+    expect(summaryPaid.isValid).toBe(true);
+    expect(summaryPaid.discrepancies).toEqual([]);
+
+    // 5. Skenario Filter: 'unpaid'
+    const displayedUnpaid = filterOrdersByStatus(mockOrders, 'unpaid');
+    const summaryUnpaid = computeAndValidateDashboardSummary(mockOrders, displayedUnpaid, 'unpaid');
+
+    expect(summaryUnpaid.displayedTrx).toBe(summaryUnpaid.unpaidTrx);
+    expect(summaryUnpaid.displayedTrx).toBe(1); // nota-300 is unpaid
+    expect(summaryUnpaid.displayedItems).toBe(1);
+    expect(displayedUnpaid.every((it) => it.paymentStatus === 'UNPAID')).toBe(true);
+    expect(summaryUnpaid.isValid).toBe(true);
+    expect(summaryUnpaid.discrepancies).toEqual([]);
+
+    // 6. Skenario Mismatch / Anomali terdeteksi oleh validasi
     // Jika dipaksa menampilkan order yang tidak cocok (misal 0 item saat filter pending harusnya 2)
     const summaryAnomaly = computeAndValidateDashboardSummary(mockOrders, [], 'pending');
     expect(summaryAnomaly.isValid).toBe(false);

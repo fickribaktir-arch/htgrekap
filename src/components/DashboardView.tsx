@@ -222,6 +222,8 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     if (searchQuery) parts.push(`"${searchQuery}"`);
     if (statusFilter === 'delivered') parts.push('Status: Delivery Selesai');
     if (statusFilter === 'pending') parts.push('Status: Pending');
+    if (statusFilter === 'paid') parts.push('Status: Sudah Bayar (PAID)');
+    if (statusFilter === 'unpaid') parts.push('Status: Belum Bayar (UNPAID)');
     return parts.length > 0 ? parts.join(', ') : 'All Time';
   }, [selectedStoreFilter, selectedKitchenFilter, dateFilter, searchQuery, statusFilter]);
 
@@ -337,8 +339,8 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
             onChange={handleDateFilterChange}
           />
 
-          {/* Toggle Switch Status: Status [Semua 141] [Delivery 77] [Pending 64] */}
-          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+          {/* Toggle Switch Status: Status [Semua] [Delivery] [Pending] | [Paid] [Unpaid] */}
+          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-2xs flex-wrap">
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mr-0.5">Status</span>
             <button
               type="button"
@@ -356,8 +358,8 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
               onClick={() => setStatusFilter(statusFilter === 'delivered' ? 'all' : 'delivered')}
               className={`rounded-full px-2.5 py-0.5 text-xs font-bold transition-all cursor-pointer ${
                 statusFilter === 'delivered'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300'
+                  ? 'bg-sky-600 text-white shadow-xs'
+                  : 'text-sky-700 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300'
               }`}
             >
               Delivery {dashboardMetrics.deliveredTrx}
@@ -367,11 +369,40 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
               onClick={() => setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')}
               className={`rounded-full px-2.5 py-0.5 text-xs font-bold transition-all cursor-pointer ${
                 statusFilter === 'pending'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300'
+              }`}
+            >
+              Pending {dashboardMetrics.pendingTrx}
+            </button>
+
+            <span className="text-slate-300 dark:text-slate-700 mx-0.5 font-light" aria-hidden="true">|</span>
+
+            <button
+              type="button"
+              data-testid="filter-paid-btn"
+              onClick={() => setStatusFilter(statusFilter === 'paid' ? 'all' : 'paid')}
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold transition-all cursor-pointer ${
+                statusFilter === 'paid'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300'
+              }`}
+            >
+              <CheckCircle2 className="w-3 h-3" />
+              <span>Paid {dashboardMetrics.paidTrx}</span>
+            </button>
+            <button
+              type="button"
+              data-testid="filter-unpaid-btn"
+              onClick={() => setStatusFilter(statusFilter === 'unpaid' ? 'all' : 'unpaid')}
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold transition-all cursor-pointer ${
+                statusFilter === 'unpaid'
                   ? 'bg-rose-600 text-white shadow-xs'
                   : 'text-rose-700 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300'
               }`}
             >
-              Pending {dashboardMetrics.pendingTrx}
+              <Clock className="w-3 h-3" />
+              <span>Unpaid {dashboardMetrics.unpaidTrx}</span>
             </button>
           </div>
 
