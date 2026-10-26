@@ -340,5 +340,61 @@ describe('Dashboard Status Metrics Validation', () => {
     const summaryWithExpenses = computeAndValidateDashboardSummary(mockOrdersWithCashback, displayed, 'all', 20000);
     expect(summaryWithExpenses.biayaOperasional).toBe(20000);
     expect(summaryWithExpenses.totalLabaBersih).toBe(54000);
+
+    // Verifikasi total jumlah invoice cashback & total nominal invoice cashback
+    expect(summary.cashbackTrx).toBe(1); // nota-cb-1 punya item cashback, nota-cb-2 tidak
+    // Invoice 1 (cb > 0 ? cb : hj): 10 * 22.000 = 220.000
+    expect(summary.totalInvoiceCashback).toBe(220000);
+    // Invoice 1 Ori: 10 * 25.000 = 250.000
+    expect(summary.totalInvoiceCashbackOri).toBe(250000);
+  });
+
+  it('memvalidasi pemfilteran khusus invoice cashback pada dashboard', () => {
+    const orders: OrderItem[] = [
+      {
+        id: 'cb-inv-1',
+        namaBarang: 'Bawang Merah',
+        qty: 5,
+        satuan: 'Kg',
+        hargaBeli: 20000,
+        hargaJual: 30000,
+        cashback: 28000, // ada cashback
+        toko: 'HTG',
+        tujuanDapur: 'Dapur A',
+        pemasok: 'Pemasok Bawang',
+        status: 'selesai',
+        tanggal: '2026-10-10',
+        paymentStatus: 'PAID',
+        deliveryStatus: 'DONE',
+        notaId: 'nota-cb-101',
+      },
+      {
+        id: 'no-cb-inv-2',
+        namaBarang: 'Cabai Merah',
+        qty: 3,
+        satuan: 'Kg',
+        hargaBeli: 50000,
+        hargaJual: 60000,
+        cashback: 0, // no cashback
+        toko: 'HTG',
+        tujuanDapur: 'Dapur B',
+        pemasok: 'Pemasok Cabai',
+        status: 'selesai',
+        tanggal: '2026-10-10',
+        paymentStatus: 'PAID',
+        deliveryStatus: 'DONE',
+        notaId: 'nota-plain-102',
+      },
+    ];
+
+    const filteredCashback = filterOrdersByStatus(orders, 'cashback');
+    expect(filteredCashback.length).toBe(1);
+    expect(filteredCashback[0].notaId).toBe('nota-cb-101');
+
+    const summary = computeAndValidateDashboardSummary(orders, filteredCashback, 'cashback');
+    expect(summary.cashbackTrx).toBe(1);
+    expect(summary.displayedTrx).toBe(1);
+    expect(summary.totalInvoiceCashback).toBe(5 * 28000); // 140.000
+    expect(summary.discrepancies.length).toBe(0);
   });
 });

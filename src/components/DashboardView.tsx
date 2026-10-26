@@ -7,7 +7,8 @@ import {
   X,
   ShoppingBag,
   CheckCircle2,
-  Clock
+  Clock,
+  Tag
 } from 'lucide-react';
 import { 
   OrderItem, 
@@ -224,6 +225,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     if (statusFilter === 'pending') parts.push('Status: Pending');
     if (statusFilter === 'paid') parts.push('Status: Sudah Bayar (PAID)');
     if (statusFilter === 'unpaid') parts.push('Status: Belum Bayar (UNPAID)');
+    if (statusFilter === 'cashback') parts.push('Status: Invoice Cashback');
     return parts.length > 0 ? parts.join(', ') : 'All Time';
   }, [selectedStoreFilter, selectedKitchenFilter, dateFilter, searchQuery, statusFilter]);
 
@@ -403,6 +405,23 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
             >
               <Clock className="w-3 h-3" />
               <span>Unpaid {dashboardMetrics.unpaidTrx}</span>
+            </button>
+
+            <span className="text-slate-300 dark:text-slate-700 mx-0.5 font-light" aria-hidden="true">|</span>
+
+            <button
+              type="button"
+              data-testid="filter-cashback-btn"
+              onClick={() => setStatusFilter(statusFilter === 'cashback' ? 'all' : 'cashback')}
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold transition-all cursor-pointer ${
+                statusFilter === 'cashback'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300'
+              }`}
+              title="Filter hanya invoice yang ada cashbacknya"
+            >
+              <Tag className="w-3 h-3" />
+              <span>CB {dashboardMetrics.cashbackTrx}</span>
             </button>
           </div>
 

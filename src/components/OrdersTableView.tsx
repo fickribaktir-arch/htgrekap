@@ -125,12 +125,22 @@ const OrderRow: React.FC<OrderRowProps> = React.memo(({
               {group.tujuanDapur}
             </span>
 
-            {/* 1.2. NOMOR INVOICE */}
-            {(group.items[0]?.invoiceNumber || (group.items[0] as any)?.invoice_number) && (
-              <div className="font-mono text-[9px] font-bold text-slate-500 dark:text-slate-400 select-all tracking-tight" title="Nomor Invoice">
-                {group.items[0]?.invoiceNumber || (group.items[0] as any)?.invoice_number}
-              </div>
-            )}
+            {/* 1.2. NOMOR INVOICE & BADGE CB */}
+            <div className="flex items-center justify-center flex-wrap gap-1">
+              {(group.items[0]?.invoiceNumber || (group.items[0] as any)?.invoice_number) && (
+                <span className="font-mono text-[9px] font-bold text-slate-500 dark:text-slate-400 select-all tracking-tight" title="Nomor Invoice">
+                  {group.items[0]?.invoiceNumber || (group.items[0] as any)?.invoice_number}
+                </span>
+              )}
+              {hasCashback && (
+                <span
+                  className="inline-flex items-center px-1 py-0.2 rounded text-[8px] font-black uppercase tracking-tight bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shadow-2xs"
+                  title="Invoice memiliki cashback (Tersedia varian Ori & Cashback)"
+                >
+                  CB
+                </span>
+              )}
+            </div>
 
             {/* 1.3. TANGGAL & JAM */}
             <div className="flex flex-col items-center justify-center gap-0.5 leading-none mt-0.5">

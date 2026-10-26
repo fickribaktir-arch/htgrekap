@@ -152,6 +152,8 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
     pendingTrx: pendingBatches,
     paidTrx: paidBatches,
     unpaidTrx: unpaidBatches,
+    cashbackTrx = 0,
+    totalInvoiceCashback = 0,
     displayedItems,
     displayedTrx,
     totalPenjualan,
@@ -366,18 +368,42 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = React.memo(({
             </div>
           </div>
 
-          {/* Card 3: Total Cashback */}
+          {/* Card 3: Invoice Cashback */}
           <div className="min-w-0 bg-[#fef8ed] dark:bg-amber-950/40 border border-[#fae2b8] dark:border-amber-900/50 rounded-2xl p-3 flex flex-col justify-between shadow-2xs transition-colors">
-            <div className="flex items-center justify-between gap-1.5">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#b45309] dark:text-amber-300 block truncate">Total Cashback</span>
-              <div className="w-7 h-7 rounded-lg bg-[#ea580c] text-white flex items-center justify-center shrink-0 shadow-xs">
-                <Tag className="w-3.5 h-3.5" />
+            <div>
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#b45309] dark:text-amber-300 block truncate">Invoice Cashback</span>
+                <div className="w-7 h-7 rounded-lg bg-[#ea580c] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Tag className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div className="min-w-0 mt-2">
+                <span className="text-sm sm:text-base lg:text-lg font-black font-nominal text-slate-900 dark:text-slate-100 leading-tight tracking-tight truncate block">
+                  <AnimatedCounter value={totalInvoiceCashback} format="rupiah" />
+                </span>
               </div>
             </div>
-            <div className="min-w-0 mt-2">
-              <span className="text-sm sm:text-base lg:text-lg font-black font-nominal text-slate-900 dark:text-slate-100 leading-tight tracking-tight truncate block">
-                <AnimatedCounter value={totalCashback} format="rupiah" />
-              </span>
+
+            {/* Detail Jml Invoice Cashback & Potongan Cashback */}
+            <div className="mt-2.5 pt-2 border-t border-amber-200/80 dark:border-amber-900/60 flex flex-col gap-1">
+              <div className="flex items-center justify-between text-[10px] sm:text-[11px] leading-tight">
+                <span className="inline-flex items-center gap-1 font-bold text-amber-700 dark:text-amber-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                  <span>Jml Invoice:</span>
+                </span>
+                <span className="font-bold text-amber-900 dark:text-amber-200">
+                  {cashbackTrx} Invoice
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[10px] sm:text-[11px] leading-tight">
+                <span className="inline-flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0"></span>
+                  <span>Potongan CB:</span>
+                </span>
+                <span className="font-bold font-nominal text-amber-800 dark:text-amber-300">
+                  {formatRupiah(totalCashback)}
+                </span>
+              </div>
             </div>
           </div>
 

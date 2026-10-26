@@ -1,7 +1,7 @@
 import { OrderItem, PaymentStatus, DeliveryStatus } from '../types';
 import { parseIndonesianNumber } from './formatters';
 
-export type DashboardStatusFilter = 'all' | 'delivered' | 'pending' | 'paid' | 'unpaid';
+export type DashboardStatusFilter = 'all' | 'delivered' | 'pending' | 'paid' | 'unpaid' | 'cashback';
 
 export interface ValidatedOrderGroup {
   key: string;
@@ -12,6 +12,7 @@ export interface ValidatedOrderGroup {
   items: OrderItem[];
   isDelivered: boolean;
   isPaid: boolean;
+  hasCashback: boolean;
   payStatus: PaymentStatus;
   delStatus: DeliveryStatus;
 }
@@ -22,6 +23,7 @@ export interface DashboardSummaryMetrics {
   pendingTrx: number;
   paidTrx: number;
   unpaidTrx: number;
+  cashbackTrx: number; // Jumlah total invoice yang ada cashbacknya
   totalItems: number;
   displayedTrx: number;
   displayedItems: number;
@@ -35,7 +37,9 @@ export interface DashboardSummaryMetrics {
   totalPengeluaranUnpaid: number;
   countPengeluaranPaid: number;
   countPengeluaranUnpaid: number;
-  totalCashback: number;
+  totalCashback: number; // Nilai potongan/selisih cashback
+  totalInvoiceCashback: number; // Total nominal hanya dari invoice yang ada cashbacknya (varian cashback)
+  totalInvoiceCashbackOri: number; // Total nominal dari invoice yang ada cashbacknya (varian ori)
   biayaOperasional: number;
   totalLabaBersih: number;
   isValid: boolean;
@@ -100,6 +104,7 @@ export function groupOrdersByBatch(orders: OrderItem[]): ValidatedOrderGroup[] {
     const first = items[0];
     const isDelivered = items.every((it) => getItemDelStatus(it) === 'DONE');
     const isPaid = items.every((it) => getItemPayStatus(it) === 'PAID');
+    const hasCashback = items.some((it) => Number(it.cashback) > 0);
 
     groups.push({
       key,
@@ -110,6 +115,7 @@ export function groupOrdersByBatch(orders: OrderItem[]): ValidatedOrderGroup[] {
       items,
       isDelivered,
       isPaid,
+      hasCashback,
       delStatus: isDelivered ? 'DONE' : 'PENDING',
       payStatus: isPaid ? 'PAID' : 'UNPAID',
     });
@@ -145,6 +151,9 @@ export function filterOrdersByStatus(
       case 'unpaid':
         matches = !group.isPaid;
         break;
+      case 'cashback':
+        matches = group.hasCashback;
+        break;
       default:
         matches = true;
     }
@@ -172,6 +181,7 @@ export function computeAndValidateDashboardSummary(
   let pendingTrx = 0;
   let paidTrx = 0;
   let unpaidTrx = 0;
+  let cashbackTrx = 0;
 
   for (const group of allGroups) {
     if (group.isDelivered) {
@@ -184,6 +194,10 @@ export function computeAndValidateDashboardSummary(
       paidTrx++;
     } else {
       unpaidTrx++;
+    }
+
+    if (group.hasCashback) {
+      cashbackTrx++;
     }
   }
 
@@ -241,6 +255,26 @@ export function computeAndValidateDashboardSummary(
       countPenjualanUnpaid++;
       totalPengeluaranUnpaid += modalItem;
       countPengeluaranUnpaid++;
+    }
+  }
+
+  // Hitung Total Invoice Cashback (hanya untuk invoice/group yang memiliki item cashback)
+  let totalInvoiceCashback = 0;
+  let totalInvoiceCashbackOri = 0;
+
+  for (const group of displayedGroups) {
+    if (group.hasCashback) {
+      for (const item of group.items) {
+        const rawQtyJual = parseIndonesianNumber(item.qty) || 0;
+        const returQty = Math.max(0, Number(item.retur) || 0);
+        const qtyFinal = Math.max(0, rawQtyJual - returQty);
+        const jual = parseIndonesianNumber(item.hargaJual) || 0;
+        const cb = parseIndonesianNumber(item.cashback) || 0;
+        const pCashback = cb > 0 ? cb : jual;
+
+        totalInvoiceCashback += qtyFinal * pCashback;
+        totalInvoiceCashbackOri += qtyFinal * jual;
+      }
     }
   }
 
@@ -310,6 +344,12 @@ export function computeAndValidateDashboardSummary(
         `Discrepancy 'unpaid': Jumlah baris terdisplay (${displayedTrx}) tidak cocok dengan visual count (${unpaidTrx})`
       );
     }
+  } else if (statusFilter === 'cashback') {
+    if (displayedTrx !== cashbackTrx) {
+      discrepancies.push(
+        `Discrepancy 'cashback': Jumlah baris terdisplay (${displayedTrx}) tidak cocok dengan visual count (${cashbackTrx})`
+      );
+    }
   }
 
   const isValid = discrepancies.length === 0;
@@ -324,6 +364,7 @@ export function computeAndValidateDashboardSummary(
     pendingTrx,
     paidTrx,
     unpaidTrx,
+    cashbackTrx,
     totalItems,
     displayedTrx,
     displayedItems,
@@ -338,6 +379,8 @@ export function computeAndValidateDashboardSummary(
     countPengeluaranPaid,
     countPengeluaranUnpaid,
     totalCashback,
+    totalInvoiceCashback,
+    totalInvoiceCashbackOri,
     biayaOperasional: safeBiayaOperasional,
     totalLabaBersih,
     isValid,
